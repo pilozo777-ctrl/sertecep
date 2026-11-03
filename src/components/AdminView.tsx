@@ -1,13 +1,26 @@
 import React, { useState } from 'react';
 import { Course, CourseModule, Lesson, StudentEnrollment, CertificateRecord } from '../types';
-import { OFFICIAL_SERTECEP_LOGO, OFFICIAL_SERTECEP_PORTADA, SUPPORT_WHATSAPP_NUMBER } from '../data/mockData';
+import { 
+  OFFICIAL_SERTECEP_LOGO, 
+  OFFICIAL_SERTECEP_PORTADA, 
+  SUPPORT_WHATSAPP_NUMBER,
+  OFFICIAL_CERTIFICATE_SCAN,
+  OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+  OFFICIAL_BLOCKCHAIN_TX,
+  OFFICIAL_BLOCKCHAIN_PUBKEY,
+  OFFICIAL_RUC,
+  OFFICIAL_EXPEDIENTE,
+  OFFICIAL_SIGNER_NAME
+} from '../data/mockData';
 import { 
   ShieldCheck, BookOpen, Users, Award, Settings, Plus, 
   Trash2, Edit3, CheckCircle2, Search, ArrowRight, Video, 
-  Download, FileText, Phone, Mail, Check, X, Key, Copy, UserPlus, Layers, Eye, Play
+  Download, FileText, Phone, Mail, Check, X, Key, Copy, UserPlus, Layers, Eye, Play,
+  Link2, Upload, FileUp, Sparkles, Image as ImageIcon
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CertificateDocument } from './CertificateDocument';
+import { parseVideoSource } from './VideoPlayer';
 
 interface AdminViewProps {
   courses: Course[];
@@ -72,7 +85,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [editCourseTagline, setEditCourseTagline] = useState('');
   const [editCourseInstructorName, setEditCourseInstructorName] = useState('');
 
-  // Certificate Modals & Management
+  // Certificate Modals & Management (Linking and Uploading)
   const [previewingCertificate, setPreviewingCertificate] = useState<CertificateRecord | null>(null);
   const [isCreatingManualCert, setIsCreatingManualCert] = useState(false);
   const [manualCertStudentId, setManualCertStudentId] = useState(students[0]?.id || '');
@@ -80,6 +93,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [manualCertHours, setManualCertHours] = useState(120);
   const [manualCertSpecialty, setManualCertSpecialty] = useState('Capacitación Profesional y Tecnológica Acreditada');
   const [manualCertInstructor, setManualCertInstructor] = useState('Ing. Arturo de la Cruz');
+  const [manualCertSigner, setManualCertSigner] = useState(OFFICIAL_SIGNER_NAME);
+  const [manualCertBlockchainUrl, setManualCertBlockchainUrl] = useState(OFFICIAL_ZEYO_BLOCKCHAIN_URL);
+  const [manualCertTxHash, setManualCertTxHash] = useState(OFFICIAL_BLOCKCHAIN_TX);
+  const [manualCertDigitalFile, setManualCertDigitalFile] = useState(OFFICIAL_CERTIFICATE_SCAN);
+  const [manualCertFileName, setManualCertFileName] = useState('Certificado_Oficial_Sertecep_Scan.png');
+  const [manualCertActiveTab, setManualCertActiveTab] = useState<'link' | 'upload'>('link');
 
   // Form for creating a new student profile and credentials
   const [studentFullName, setStudentFullName] = useState('');
@@ -169,7 +188,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       description: newCourseDescription.trim(),
       category: newCourseCategory,
       level: 'Principiante a Avanzado',
-      coverImage: '/src/assets/images/course_flutter_ai_1793675124066.jpg',
+      coverImage: '/assets/courses/desarrollo_web.jpg',
       instructor: {
         name: 'Ing. Arturo de la Cruz',
         role: 'Director Académico Sertecep Amazónico',
@@ -372,7 +391,22 @@ export const AdminView: React.FC<AdminViewProps> = ({
     triggerToast('¡Información del curso actualizada exitosamente!');
   };
 
-  // Handler for manual certificate issuance
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setManualCertFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setManualCertDigitalFile(reader.result);
+        triggerToast(`Archivo digital "${file.name}" cargado exitosamente.`);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handler for manual certificate issuance (Supporting Linking and File Upload)
   const handleEmitManualCertificate = (e: React.FormEvent) => {
     e.preventDefault();
     const student = students.find(s => s.id === manualCertStudentId) || students[0];
@@ -387,26 +421,41 @@ export const AdminView: React.FC<AdminViewProps> = ({
       courseTitle: course.title,
       specialty: manualCertSpecialty.trim() || 'Capacitación Profesional y Tecnológica Acreditada',
       academicHours: Number(manualCertHours) || 120,
-      issueDate: new Date().toISOString().replace('T', ' ').substring(0, 19),
+      issueDate: new Date().toLocaleDateString('es-EC'),
       startDate: student.registrationDate || '2026-04-01',
       endDate: 'Aprobado y Convalidado',
       studentName: student.studentName,
       studentDoc: student.docNumber,
       studentPhoto: '/assets/aistudio/image_f29cb282.png',
-      institution: 'Academia Sertecep Amazónico S.A.S.',
+      institution: 'Academia de Enseñanza Técnica y Profesional SERTECEP Amazónico',
       institutionCity: 'Shushufindi, Sucumbíos - Ecuador',
-      verificationUrl: `https://sertecep-amazonico.edu.ec/verificar/${newCertCode}`,
-      qrPayload: `https://sertecep-amazonico.edu.ec/verificar/${newCertCode}`,
+      verificationUrl: manualCertBlockchainUrl.trim() || `https://sertecep-amazonico.edu.ec/verificar/${newCertCode}`,
+      qrPayload: manualCertBlockchainUrl.trim() || `https://sertecep-amazonico.edu.ec/verificar/${newCertCode}`,
       instructorName: manualCertInstructor.trim() || 'Ing. Arturo de la Cruz',
       instructorTitle: 'Docente Especialista',
-      directorName: 'Gerencia General Sertecep',
-      directorTitle: 'Dirección Académica Regional'
+      directorName: manualCertSigner.trim() || OFFICIAL_SIGNER_NAME,
+      directorTitle: `Dirección Académica Regional · RUC ${OFFICIAL_RUC}`,
+      blockchainUrl: manualCertBlockchainUrl.trim() || OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+      blockchainNetwork: 'Polygon (POS Blockchain)',
+      blockchainTxHash: manualCertTxHash.trim() || OFFICIAL_BLOCKCHAIN_TX,
+      blockchainIssuerKey: OFFICIAL_BLOCKCHAIN_PUBKEY,
+      digitalFileUrl: manualCertDigitalFile || OFFICIAL_CERTIFICATE_SCAN,
+      digitalFileType: manualCertFileName.toLowerCase().endsWith('.pdf') ? 'pdf' : 'image',
+      digitalFileName: manualCertFileName,
+      officialRuc: OFFICIAL_RUC,
+      expedienteNum: OFFICIAL_EXPEDIENTE,
+      signerName: manualCertSigner.trim() || OFFICIAL_SIGNER_NAME,
     };
 
     onAddCertificate(newRecord);
+
+    // Also update student status to approved certificate
+    const updatedStudents = students.map(s => s.id === student.id ? { ...s, certificateApproved: true } : s);
+    onUpdateStudents(updatedStudents);
+
     setIsCreatingManualCert(false);
-    confetti({ particleCount: 50, spread: 70 });
-    triggerToast(`¡Diploma oficial emitido con código ${newCertCode}!`);
+    confetti({ particleCount: 65, spread: 75 });
+    triggerToast(`¡Diploma y certificación oficial emitida con código ${newCertCode}!`);
   };
 
   const handleDeleteCertificate = (certId: string) => {
@@ -1461,46 +1510,46 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
 
               {/* Video Live Preview */}
-              <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+              <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
                     <Video className="w-3.5 h-3.5 text-amber-400" />
-                    <span>Vista previa del reproductor</span>
+                    <span>Reproducción directa en plataforma</span>
                   </span>
                   <button
                     type="button"
                     onClick={() => setTestVideoPlaying(!testVideoPlaying)}
                     className="text-[10px] text-amber-400 font-bold hover:underline"
                   >
-                    {testVideoPlaying ? 'Ocultar prueba' : 'Probar reproductor'}
+                    {testVideoPlaying ? 'Ocultar prueba' : 'Probar reproductor integrado'}
                   </button>
                 </div>
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  ✓ El estudiante verá y reproducirá el video directamente dentro del Aula Virtual sin ser redirigido a YouTube.
+                </p>
 
-                {testVideoPlaying && (
-                  <div className="aspect-video w-full rounded-xl bg-black overflow-hidden border border-slate-800 flex items-center justify-center">
-                    {editLessonYoutubeUrl && (editLessonYoutubeUrl.includes('youtube.com') || editLessonYoutubeUrl.includes('youtu.be')) ? (
-                      <iframe
-                        src={
-                          editLessonYoutubeUrl.includes('watch?v=')
-                            ? editLessonYoutubeUrl.replace('watch?v=', 'embed/')
-                            : editLessonYoutubeUrl.includes('youtu.be/')
-                            ? editLessonYoutubeUrl.replace('youtu.be/', 'youtube.com/embed/')
-                            : editLessonYoutubeUrl
-                        }
-                        title="Prueba de video"
-                        className="w-full h-full border-0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
-                    ) : (
-                      <video
-                        src={editLessonVideoUrl}
-                        controls
-                        className="w-full h-full object-contain"
-                      />
-                    )}
-                  </div>
-                )}
+                {testVideoPlaying && (() => {
+                  const testParsed = parseVideoSource(editLessonVideoUrl, editLessonYoutubeUrl);
+                  return (
+                    <div className="aspect-video w-full rounded-xl bg-black overflow-hidden border border-slate-800 flex items-center justify-center">
+                      {testParsed.type === 'youtube' || testParsed.type === 'vimeo' || testParsed.type === 'embed' ? (
+                        <iframe
+                          src={testParsed.src}
+                          title="Prueba de video dentro del aula"
+                          className="w-full h-full border-0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <video
+                          src={testParsed.src}
+                          controls
+                          className="w-full h-full object-contain"
+                        />
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div>
@@ -1748,6 +1797,147 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   onChange={(e) => setManualCertSpecialty(e.target.value)}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-emerald-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
+                  Firmante Oficial & Representante Legal
+                </label>
+                <input
+                  type="text"
+                  value={manualCertSigner}
+                  onChange={(e) => setManualCertSigner(e.target.value)}
+                  placeholder="Mgtr. Edinson Pilozo"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-emerald-500 font-medium"
+                />
+              </div>
+
+              {/* DUAL METHOD: ENLAZAR POR BLOCKCHAIN O SUBIR DIGITALMENTE (FOTO / PDF) */}
+              <div className="pt-2 border-t border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+                    ¿CÓMO DESEAS ASIGNAR EL CERTIFICADO?
+                  </label>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {manualCertActiveTab === 'link' ? 'Modo Enlace' : 'Modo Archivo'}
+                  </span>
+                </div>
+
+                {/* Tab switcher */}
+                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setManualCertActiveTab('link')}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                      manualCertActiveTab === 'link'
+                        ? 'bg-emerald-500 text-slate-950 shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Link2 className="w-3.5 h-3.5" />
+                    <span>Enlazar Blockchain (Zeyo ID)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setManualCertActiveTab('upload')}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                      manualCertActiveTab === 'upload'
+                        ? 'bg-emerald-500 text-slate-950 shadow'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <FileUp className="w-3.5 h-3.5" />
+                    <span>Subir Foto o PDF</span>
+                  </button>
+                </div>
+
+                {/* OPTION 1: LINK BLOCKCHAIN */}
+                {manualCertActiveTab === 'link' && (
+                  <div className="space-y-2.5 p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase">
+                          URL de Verificación Blockchain (Zeyo ID / Polygon)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setManualCertBlockchainUrl(OFFICIAL_ZEYO_BLOCKCHAIN_URL)}
+                          className="text-[10px] text-emerald-400 hover:underline"
+                        >
+                          Cargar enlace oficial de prueba
+                        </button>
+                      </div>
+                      <input
+                        type="url"
+                        value={manualCertBlockchainUrl}
+                        onChange={(e) => setManualCertBlockchainUrl(e.target.value)}
+                        placeholder="https://id.zeyo.io/certificates/..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-emerald-400 font-mono text-xs focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">
+                        Hash de Transacción Blockchain (Polygon)
+                      </label>
+                      <input
+                        type="text"
+                        value={manualCertTxHash}
+                        onChange={(e) => setManualCertTxHash(e.target.value)}
+                        placeholder="0x7aa..."
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-amber-300 font-mono text-xs focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* OPTION 2: UPLOAD DIGITAL CERTIFICATE (PHOTO OR PDF) */}
+                {manualCertActiveTab === 'upload' && (
+                  <div className="space-y-3 p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">
+                        Seleccionar Archivo Digital (.png, .jpg, .jpeg, .pdf)
+                      </label>
+                      <input
+                        type="file"
+                        accept=".png,.jpg,.jpeg,.pdf,.webp"
+                        onChange={handleFileUpload}
+                        className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-500 file:text-slate-950 hover:file:bg-emerald-400 cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <span className="text-slate-400 truncate max-w-xs font-mono">
+                        Archivo activo: <strong className="text-white">{manualCertFileName}</strong>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setManualCertDigitalFile(OFFICIAL_CERTIFICATE_SCAN);
+                          setManualCertFileName('Certificado_Oficial_Sertecep_Scan.png');
+                          triggerToast('Cargado certificado oficial escaneado.');
+                        }}
+                        className="text-[11px] text-amber-400 hover:underline font-medium"
+                      >
+                        Usar certificado escaneado de muestra
+                      </button>
+                    </div>
+
+                    {manualCertDigitalFile && (
+                      <div className="relative w-full h-24 rounded-lg bg-black border border-slate-800 overflow-hidden flex items-center justify-center">
+                        <img
+                          src={manualCertDigitalFile}
+                          alt="Previsualización"
+                          className="h-full object-contain"
+                        />
+                        <span className="absolute bottom-1 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[9px] text-emerald-400 font-mono">
+                          Vista previa lista
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

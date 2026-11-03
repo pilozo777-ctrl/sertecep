@@ -1,17 +1,28 @@
 import React, { useState } from 'react';
-import { Course, Lesson, LessonNote, LessonComment, UserProfile } from '../types';
+import { Course, Lesson, LessonNote, LessonComment, UserProfile, CertificateRecord } from '../types';
 import { VideoPlayer } from './VideoPlayer';
+import { CertificateDocument } from './CertificateDocument';
 import { 
   FileText, Code, CheckSquare, Download, MessageSquare, 
   ChevronRight, ArrowLeft, Plus, Trash2, Clock, Sparkles, Send, CheckCircle2,
-  FileCode, PlayCircle, BookOpen, ThumbsUp
+  FileCode, PlayCircle, BookOpen, ThumbsUp, Award, ShieldCheck, ExternalLink, X
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { 
+  OFFICIAL_CERTIFICATE_SCAN, 
+  OFFICIAL_ZEYO_BLOCKCHAIN_URL, 
+  OFFICIAL_BLOCKCHAIN_TX, 
+  OFFICIAL_BLOCKCHAIN_PUBKEY,
+  OFFICIAL_RUC,
+  OFFICIAL_EXPEDIENTE,
+  OFFICIAL_SIGNER_NAME 
+} from '../data/mockData';
 
 interface ClassroomViewProps {
   course: Course;
   initialLessonId?: string;
   userProfile: UserProfile;
+  certificate?: CertificateRecord;
   onBackToDashboard: () => void;
   onUpdateCourseProgress: (courseId: string, lessonId: string, completed: boolean) => void;
 }
@@ -20,6 +31,7 @@ export const ClassroomView: React.FC<ClassroomViewProps> = ({
   course,
   initialLessonId,
   userProfile,
+  certificate,
   onBackToDashboard,
   onUpdateCourseProgress,
 }) => {
@@ -32,6 +44,10 @@ export const ClassroomView: React.FC<ClassroomViewProps> = ({
   const currentLesson = allLessons.find(l => l.id === activeLessonId) || allLessons[0];
   const [currentVideoTime, setCurrentVideoTime] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<'resumen' | 'notas' | 'lab' | 'quiz' | 'recursos' | 'comunidad'>('resumen');
+  
+  // Certificate view states upon course completion
+  const [showCertificateModal, setShowCertificateModal] = useState<boolean>(false);
+  const [showCompletionCelebration, setShowCompletionCelebration] = useState<boolean>(false);
 
   // Interactive Notes State
   const [notes, setNotes] = useState<LessonNote[]>([
@@ -204,10 +220,69 @@ class SertecepCard extends StatelessWidget {
     setNewCommentText('');
   };
 
+  const completedCount = allLessons.filter(l => l.completed).length;
+  const isCourseCompleted = allLessons.length > 0 && completedCount === allLessons.length;
+
+  const activeCertificate: CertificateRecord = certificate || {
+    id: `cert-${course.id}`,
+    code: course.certificateCode || `ECN-CERT-2026-${course.id.toUpperCase()}`,
+    courseId: course.id,
+    courseTitle: course.title,
+    specialty: course.tagline || 'Capacitación Profesional y Tecnológica Acreditada',
+    academicHours: course.totalHours,
+    issueDate: new Date().toLocaleDateString('es-EC'),
+    startDate: course.startDate || '01/04/2026',
+    endDate: 'Aprobado y Convalidado',
+    studentName: `${userProfile.firstName} ${userProfile.secondName ? userProfile.secondName + ' ' : ''}${userProfile.firstLastName} ${userProfile.secondLastName}`.trim(),
+    studentDoc: userProfile.docNumber,
+    studentPhoto: userProfile.photoUrl,
+    institution: 'Academia de Enseñanza Técnica y Profesional SERTECEP Amazónico',
+    institutionCity: 'Shushufindi, Sucumbíos - Ecuador',
+    verificationUrl: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+    qrPayload: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+    instructorName: course.instructor.name,
+    instructorTitle: course.instructor.role,
+    directorName: OFFICIAL_SIGNER_NAME,
+    directorTitle: 'Dirección Académica Regional',
+    blockchainUrl: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+    blockchainNetwork: 'Polygon (POS Blockchain)',
+    blockchainTxHash: OFFICIAL_BLOCKCHAIN_TX,
+    blockchainIssuerKey: OFFICIAL_BLOCKCHAIN_PUBKEY,
+    digitalFileUrl: OFFICIAL_CERTIFICATE_SCAN,
+    digitalFileType: 'image',
+    digitalFileName: 'Certificado_Oficial_Sertecep_Blockchain.png',
+    officialRuc: OFFICIAL_RUC,
+    expedienteNum: OFFICIAL_EXPEDIENTE,
+    signerName: OFFICIAL_SIGNER_NAME,
+  };
+
+  const handleToggleLessonComplete = (lessonId: string) => {
+    const lesson = allLessons.find(l => l.id === lessonId);
+    if (!lesson) return;
+    const willBeCompleted = !lesson.completed;
+    onUpdateCourseProgress(course.id, lessonId, willBeCompleted);
+
+    const remainingCount = allLessons.filter(l => l.id !== lessonId && !l.completed).length;
+    if (willBeCompleted && remainingCount === 0) {
+      confetti({ particleCount: 110, spread: 85, origin: { y: 0.5 } });
+      setShowCompletionCelebration(true);
+    }
+  };
+
+  const handleCompleteAllLessons = () => {
+    allLessons.forEach(l => {
+      if (!l.completed) {
+        onUpdateCourseProgress(course.id, l.id, true);
+      }
+    });
+    confetti({ particleCount: 130, spread: 90, origin: { y: 0.5 } });
+    setShowCompletionCelebration(true);
+  };
+
   return (
     <div className="min-h-screen bg-[#080c12] text-slate-100 flex flex-col">
       {/* Top Breadcrumb & Navigation Bar */}
-      <div className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 py-3 flex items-center justify-between">
+      <div className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 py-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={onBackToDashboard}
@@ -225,10 +300,30 @@ class SertecepCard extends StatelessWidget {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Certificate Action Button in Header */}
+          {isCourseCompleted ? (
+            <button
+              onClick={() => setShowCertificateModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-950 bg-amber-400 hover:bg-amber-300 rounded-xl transition shadow-lg shadow-amber-400/25 active:scale-95 animate-pulse"
+            >
+              <Award className="w-4 h-4 text-slate-950" />
+              <span>Ver mi Certificado Oficial</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowCertificateModal(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-xl transition"
+              title="Previsualizar formato del certificado de este curso"
+            >
+              <Award className="w-3.5 h-3.5 text-amber-400" />
+              <span>Ver Certificado</span>
+            </button>
+          )}
+
           <div className="text-right hidden sm:block">
             <p className="text-xs font-semibold text-white">Progreso del Alumno</p>
             <p className="text-[11px] text-emerald-400 font-mono">
-              Lección {currentLesson.lessonNumber} de {allLessons.length} ({Math.round((allLessons.filter(l => l.completed).length / allLessons.length) * 100)}% completado)
+              Lección {currentLesson.lessonNumber} de {allLessons.length} ({Math.round((completedCount / allLessons.length) * 100)}% completado)
             </p>
           </div>
           <div className="w-10 h-10 rounded-full border border-emerald-500/30 overflow-hidden bg-slate-900 flex items-center justify-center text-xs font-bold text-emerald-400">
@@ -250,7 +345,7 @@ class SertecepCard extends StatelessWidget {
             onTimeUpdate={setCurrentVideoTime}
             onSeek={setCurrentVideoTime}
             isCompleted={currentLesson.completed}
-            onToggleComplete={() => onUpdateCourseProgress(course.id, currentLesson.id, !currentLesson.completed)}
+            onToggleComplete={() => handleToggleLessonComplete(currentLesson.id)}
             onSaveProgress={() => {}}
           />
 
@@ -772,6 +867,49 @@ class SertecepCard extends StatelessWidget {
                   <span className="text-white font-bold">{course.totalHours}h</span>
                 </div>
               </div>
+
+              {/* Certificate Status & Quick Actions in Roadmap */}
+              {isCourseCompleted ? (
+                <div className="pt-3 border-t border-slate-800 space-y-2">
+                  <div className="p-3.5 rounded-xl bg-gradient-to-r from-emerald-500/20 via-slate-900 to-amber-500/15 border border-emerald-500/40 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Award className="w-5 h-5 text-amber-400 shrink-0 animate-bounce" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">
+                        ¡Curso 100% Finalizado!
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed">
+                      Has completado todas las clases y talleres. Tu certificado oficial con validación Blockchain en Polygon (Zeyo ID) y respaldo legal está listo.
+                    </p>
+                    <button
+                      onClick={() => setShowCertificateModal(true)}
+                      className="w-full py-2.5 px-3 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 active:scale-98"
+                    >
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Ver y Descargar mi Certificado Oficial</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="pt-3 border-t border-slate-800 space-y-2">
+                  <button
+                    onClick={handleCompleteAllLessons}
+                    className="w-full py-2 px-3 bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 font-semibold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-1.5"
+                    title="Simular finalización completa para emitir el certificado inmediatamente"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Completar todo el curso (Ver Certificado)</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowCertificateModal(true)}
+                    className="w-full py-1.5 px-3 bg-transparent hover:bg-slate-800/80 text-slate-400 hover:text-amber-400 text-[11px] font-medium rounded-lg transition flex items-center justify-center gap-1.5"
+                  >
+                    <Award className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Previsualizar modelo de certificado</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -858,6 +996,87 @@ class SertecepCard extends StatelessWidget {
           </div>
         </div>
       </div>
+
+      {/* Course Completion Celebration Modal */}
+      {showCompletionCelebration && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-slate-900 border border-emerald-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl relative text-center space-y-4">
+            <button
+              onClick={() => setShowCompletionCelebration(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
+              <Award className="w-9 h-9" />
+            </div>
+
+            <div>
+              <span className="text-[10px] font-bold text-amber-400 font-mono tracking-widest uppercase">
+                ACREDITACIÓN ACADÉMICA OFICIAL · SERTECEP AMAZÓNICO
+              </span>
+              <h2 className="text-2xl font-black text-white tracking-tight mt-1">
+                ¡Felicitaciones! Has completado el curso
+              </h2>
+              <p className="text-xs text-slate-300 mt-2 leading-relaxed">
+                Has finalizado con éxito el 100% del programa en <strong>"{course.title}"</strong> con {course.totalHours} horas académicas. Tu certificado ha sido emitido con validación Blockchain en Polygon (Zeyo ID).
+              </p>
+            </div>
+
+            {/* Mini preview card */}
+            <div className="p-3 rounded-2xl bg-slate-950 border border-slate-800 text-left font-mono text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">ESTUDIANTE:</span>
+                <span className="text-white font-bold">{userProfile.firstName} {userProfile.firstLastName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">CÉDULA:</span>
+                <span className="text-white">{userProfile.docNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">VALIDACIÓN:</span>
+                <span className="text-emerald-400 font-bold">Polygon Blockchain (Zeyo ID)</span>
+              </div>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center gap-2.5">
+              <button
+                onClick={() => {
+                  setShowCompletionCelebration(false);
+                  setShowCertificateModal(true);
+                }}
+                className="w-full py-3 px-4 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2"
+              >
+                <Award className="w-4 h-4" />
+                <span>Ver y Descargar mi Certificado</span>
+              </button>
+              <a
+                href={activeCertificate.blockchainUrl || OFFICIAL_ZEYO_BLOCKCHAIN_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="w-full sm:w-auto py-3 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition flex items-center justify-center gap-2"
+              >
+                <ExternalLink className="w-4 h-4 text-emerald-400" />
+                <span>Blockchain</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Certificate Inspection & Download Modal */}
+      {showCertificateModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          <div className="relative w-full max-w-5xl bg-slate-900 border border-slate-700 rounded-3xl p-4 sm:p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+            <CertificateDocument
+              certificate={activeCertificate}
+              isModal={true}
+              onClose={() => setShowCertificateModal(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

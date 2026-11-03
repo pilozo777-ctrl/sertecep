@@ -3,7 +3,8 @@ import { Course, AuthAccount, StudentEnrollment } from '../types';
 import { 
   OFFICIAL_SERTECEP_LOGO, OFFICIAL_SERTECEP_PORTADA, 
   ADMIN_USERNAME, ADMIN_PASSWORD, defaultAdminAccount, defaultStudentAccount,
-  SUPPORT_WHATSAPP_NUMBER 
+  SUPPORT_WHATSAPP_NUMBER,
+  COURSE_FALLBACK_IMAGES
 } from '../data/mockData';
 import { 
   Search, Lock, Mail, User, Eye, EyeOff, ArrowRight, 
@@ -32,6 +33,7 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
   const [searchFilter, setSearchFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
   const [syllabusModalCourse, setSyllabusModalCourse] = useState<Course | null>(null);
+  const [showColibriBannerModal, setShowColibriBannerModal] = useState<boolean>(false);
 
   const catalogRef = useRef<HTMLDivElement>(null);
   const loginCardRef = useRef<HTMLDivElement>(null);
@@ -185,26 +187,52 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
         </div>
       </header>
 
-      {/* 2. HERO EXTERNO CON FORMULARIO INTEGRADO (Exact replica of image_8559f919.png) */}
-      <section className="relative overflow-hidden py-8 lg:py-16 border-b border-slate-800/80 w-full">
-        {/* Background Portada Backdrop */}
-        <div className="absolute inset-0 z-0 pointer-events-none">
+      {/* 2. HERO EXTERNO CON FONDO ARQUITECTÓNICO DEL COLIBRÍ AMAZÓNICO */}
+      <section className="relative overflow-hidden py-10 lg:py-20 border-b border-slate-800/80 w-full">
+        {/* Background Portada Backdrop con Colibrí Amazónico Visible y Elegante */}
+        <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
+          {/* Main Colibrí artwork layer: aligned to highlight the Colibrí monument */}
           <img
             src={OFFICIAL_SERTECEP_PORTADA}
-            alt="Fondo Portada Sertecep"
+            alt="Monumento Colibrí de Shushufindi - Sertecep Amazónico"
             referrerPolicy="no-referrer"
-            className="w-full h-full object-cover opacity-20 filter brightness-75 scale-105"
+            className="w-full h-full object-cover object-[75%_center] lg:object-[82%_center] opacity-75 lg:opacity-85 filter contrast-110 brightness-95 scale-100 transition-transform duration-1000"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#070b11] via-[#070b11]/95 to-[#070b11]/85" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#070b11] via-transparent to-transparent" />
+
+          {/* Architectural Left gradient mask to ensure pristine readability for headline, text & search */}
+          <div className="absolute inset-y-0 left-0 w-full lg:w-[62%] bg-gradient-to-r from-[#070b11] via-[#070b11]/95 to-transparent pointer-events-none" />
+
+          {/* Top subtle vignette */}
+          <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-[#070b11] via-[#070b11]/75 to-transparent pointer-events-none" />
+
+          {/* Bottom vignette blending seamlessly into catalog section */}
+          <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-[#070b11] via-[#070b11]/85 to-transparent pointer-events-none" />
+
+          {/* Ambient Glowing Halos matching the Colibrí plumage (Emerald & Sunset Amber) */}
+          <div className="absolute right-[10%] top-[10%] w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-emerald-500/20 blur-3xl pointer-events-none animate-pulse" />
+          <div className="absolute right-[25%] bottom-[5%] w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-amber-400/15 blur-3xl pointer-events-none" />
         </div>
 
         <div className="relative z-10 max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-center">
           {/* Left Column: Headline, Subtitle, Search bar, Quick badges (7 cols) */}
           <div className="lg:col-span-7 space-y-4 sm:space-y-6 min-w-0 w-full">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>AULA VIRTUAL PREMIUM</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-semibold">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>AULA VIRTUAL PREMIUM</span>
+              </div>
+
+              {/* Colibrí Architectural Badge */}
+              <button
+                type="button"
+                onClick={() => setShowColibriBannerModal(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/85 hover:bg-slate-800 border border-amber-400/30 hover:border-amber-400 text-[11px] text-amber-300 transition-all shadow-sm group"
+                title="Ver mural panorámico del Colibrí de Shushufindi"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 group-hover:rotate-12 transition-transform" />
+                <span className="font-medium">Fondo: Monumento al Colibrí</span>
+                <span className="text-[10px] text-slate-400 font-mono">(Ver mural)</span>
+              </button>
             </div>
 
             <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight leading-snug sm:leading-[1.15] break-words">
@@ -212,7 +240,7 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
             </h1>
 
             <p className="text-xs sm:text-base text-slate-300 leading-relaxed max-w-2xl font-light">
-              Una experiencia académica moderna para entrar rápido a tus cursos, continuar lecciones y revisar tus recursos desde un solo lugar.
+              Una experiencia académica moderna para entrar rápido a tus cursos, continuar lecciones y revisar tus recursos desde un solo lugar. Con respaldo institucional y certificación con validación Blockchain.
             </p>
 
             {/* Explore bar with "Ver cursos" button */}
@@ -238,7 +266,7 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
 
             {/* Quick feature pill tags */}
             <div className="flex flex-wrap items-center gap-2 pt-1">
-              {['Clases', 'Recursos', 'Comunidad', 'Certificados'].map((tag) => (
+              {['Clases', 'Recursos', 'Comunidad', 'Certificados Blockchain'].map((tag) => (
                 <button
                   key={tag}
                   onClick={handleScrollToCatalog}
@@ -469,7 +497,7 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
           {filteredCourses.map((course) => (
             <div
               key={course.id}
-              className="bg-slate-900/60 border border-slate-800/80 hover:border-amber-400/40 rounded-2xl sm:rounded-3xl overflow-hidden flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-amber-400/10 group w-full min-w-0 max-w-full"
+              className="bg-slate-900/60 border border-slate-800/80 hover:border-amber-400/40 rounded-2xl sm:rounded-3xl overflow-hidden flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-amber-400/10 group w-full max-w-[340px] sm:max-w-none mx-auto sm:mx-0 min-w-0"
             >
               <div className="min-w-0">
                 {/* Course Thumbnail */}
@@ -478,9 +506,13 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
                     src={course.coverImage}
                     alt={course.title}
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = COURSE_FALLBACK_IMAGES[course.id] || COURSE_FALLBACK_IMAGES.default;
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent pointer-events-none" />
                   <div className="absolute top-2.5 left-2.5 sm:top-3 sm:left-3 max-w-[85%] truncate">
                     <span className="px-2.5 py-0.5 sm:py-1 rounded-md text-[10px] font-bold bg-black/75 backdrop-blur-md text-amber-300 border border-amber-400/30 truncate inline-block">
                       {course.category}
@@ -531,11 +563,12 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
         </div>
       </section>
 
-      {/* 4. FOOTER OFICIAL DE SERTECEP AMAZÓNICO */}
-      <footer className="border-t border-slate-800/80 bg-slate-950/90 pt-8 pb-24 sm:pb-8 px-3 sm:px-8 text-slate-500 text-xs w-full overflow-hidden">
-        <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-900 border border-emerald-500/30 p-0.5 shrink-0">
+      {/* 4. FOOTER OFICIAL DE SERTECEP AMAZÓNICO - 100% RESPONSIVE EN MÓVILES */}
+      <footer className="border-t border-slate-800/80 bg-slate-950/95 py-6 sm:py-8 px-4 sm:px-8 text-slate-400 text-xs w-full max-w-full overflow-hidden pb-28 sm:pb-8">
+        <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-5 text-center md:text-left">
+          {/* Brand info & legal details */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto">
+            <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-900 border border-emerald-500/30 p-0.5 shrink-0 shadow">
               <img
                 src={OFFICIAL_SERTECEP_LOGO}
                 alt="Logo Sertecep Amazónico"
@@ -543,30 +576,44 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
                 className="w-full h-full object-contain"
               />
             </div>
-            <div className="flex flex-wrap items-center justify-center md:justify-start gap-x-2 gap-y-1">
-              <span className="font-semibold text-slate-300">© 2026 Academia Sertecep Amazónico S.A.S.</span>
-              <span className="hidden sm:inline">·</span>
-              <span>RUC: 2191754820001</span>
-              <span className="hidden sm:inline">·</span>
-              <span className="text-slate-400">Shushufindi, Sucumbíos - Ecuador</span>
-              <span className="hidden sm:inline">·</span>
-              <span className="font-mono text-emerald-400">WhatsApp: {SUPPORT_WHATSAPP_NUMBER}</span>
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center md:justify-start gap-1 sm:gap-2 text-center sm:text-left">
+              <span className="font-bold text-white tracking-tight">
+                © 2026 Academia Sertecep Amazónico S.A.S.
+              </span>
+              <span className="hidden sm:inline text-slate-600">·</span>
+              <span className="text-slate-400 text-[11px] sm:text-xs">
+                RUC: 2191754820001
+              </span>
+              <span className="hidden sm:inline text-slate-600">·</span>
+              <span className="text-slate-400 text-[11px] sm:text-xs">
+                Shushufindi, Sucumbíos - Ecuador
+              </span>
+              <span className="hidden sm:inline text-slate-600">·</span>
+              <a
+                href={`https://wa.me/593989012515`}
+                target="_blank"
+                rel="noreferrer"
+                className="font-mono text-emerald-400 hover:underline text-[11px] sm:text-xs inline-flex items-center gap-1"
+              >
+                <span>WhatsApp: {SUPPORT_WHATSAPP_NUMBER}</span>
+              </a>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-slate-400 shrink-0">
+          {/* Quick links */}
+          <div className="flex items-center justify-center gap-4 text-xs text-slate-400 w-full md:w-auto pt-2 md:pt-0 border-t border-slate-800/60 md:border-t-0">
             <a
               href={`https://wa.me/593989012515`}
               target="_blank"
               rel="noreferrer"
-              className="hover:text-emerald-400 transition"
+              className="hover:text-emerald-400 transition py-1"
             >
               Soporte académico
             </a>
-            <span>·</span>
+            <span className="text-slate-700">·</span>
             <button
               onClick={handleScrollToLogin}
-              className="hover:text-amber-400 transition"
+              className="hover:text-amber-400 transition py-1 font-medium"
             >
               Acceso al aula
             </button>
@@ -637,6 +684,60 @@ export const PublicLandingView: React.FC<PublicLandingViewProps> = ({
                 className="px-5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition"
               >
                 Iniciar sesión para ver clases
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Colibrí Mural Panoramic Modal */}
+      {showColibriBannerModal && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-6">
+          <div className="relative w-full max-w-5xl bg-slate-900 border border-slate-700 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+            <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/80">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-slate-900 border border-emerald-500/40 p-1 flex items-center justify-center">
+                  <img
+                    src={OFFICIAL_SERTECEP_LOGO}
+                    alt="Logo Sertecep"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    Mural Oficial: Monumento al Colibrí · Sertecep Amazónico
+                    <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded">Shushufindi</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    "Nuestra tierra también innova · Domina la Inteligencia Artificial · Shushufindi Tierra de Gente Grande"
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowColibriBannerModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-2 sm:p-4 bg-black flex items-center justify-center max-h-[75vh] overflow-hidden">
+              <img
+                src={OFFICIAL_SERTECEP_PORTADA}
+                alt="Mural Panorámico Sertecep Amazónico y Colibrí"
+                className="w-full h-auto max-h-[70vh] object-contain rounded-2xl shadow-2xl"
+              />
+            </div>
+
+            <div className="p-4 bg-slate-950/90 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <span className="text-slate-400">
+                Arte y visión institucional de formación tecnológica y profesional para la Amazonía.
+              </span>
+              <button
+                onClick={() => setShowColibriBannerModal(false)}
+                className="px-5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold transition shadow"
+              >
+                Cerrar vista
               </button>
             </div>
           </div>

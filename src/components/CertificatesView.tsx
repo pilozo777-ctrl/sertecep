@@ -26,6 +26,15 @@ export const CertificatesView: React.FC<CertificatesViewProps> = ({
       origin: { y: 0.6 }
     });
 
+    if (cert.digitalFileUrl) {
+      const link = document.createElement('a');
+      link.download = cert.digitalFileName || `Certificado_Oficial_${cert.code}.png`;
+      link.href = cert.digitalFileUrl;
+      link.target = '_blank';
+      link.click();
+      return;
+    }
+
     // Create a high resolution canvas rendering
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -198,68 +207,90 @@ export const CertificatesView: React.FC<CertificatesViewProps> = ({
             className="bg-slate-900/60 border border-slate-800/80 hover:border-slate-700/80 rounded-2xl overflow-hidden flex flex-col transition-all duration-300 shadow-xl group"
           >
             {/* Visual Certificate Preview Card */}
-            <div className="relative p-6 bg-gradient-to-br from-slate-950 via-[#0a1017] to-slate-950 border-b border-slate-800/80">
-              {/* Mini Certificate Render Simulation */}
-              <div className="relative aspect-[16/10] w-full rounded-xl bg-gradient-to-br from-[#fdfbf7] via-white to-[#f7f3e8] text-slate-900 p-5 sm:p-7 border-4 border-emerald-900 shadow-inner flex flex-col justify-between overflow-hidden">
-                <div className="absolute inset-1.5 border border-amber-600/40 pointer-events-none rounded" />
-
-                {/* Top header of diploma */}
-                <div className="text-center">
-                  <div className="text-[9px] sm:text-[11px] font-bold tracking-wider text-emerald-950 uppercase">
-                    ACADEMIA SERTECEP AMAZÓNICO S.A.S.
+            <div className="relative p-4 sm:p-6 bg-gradient-to-br from-slate-950 via-[#0a1017] to-slate-950 border-b border-slate-800/80">
+              {cert.digitalFileUrl ? (
+                /* Real Digital Certificate Scan (e.g. from image_8518c087.png or uploaded) */
+                <div className="relative aspect-[16/10] w-full rounded-xl bg-black border-2 border-emerald-500/40 shadow-xl overflow-hidden group/thumb flex items-center justify-center">
+                  <img
+                    src={cert.digitalFileUrl}
+                    alt={`Certificado Digital de ${cert.studentName}`}
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute top-2 left-2 px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-mono text-[9px] font-bold flex items-center gap-1 shadow">
+                    <ShieldCheck className="w-3 h-3" />
+                    <span>POLYGON BLOCKCHAIN · ZEYO ID</span>
                   </div>
-                  <div className="text-[7px] sm:text-[9px] text-slate-500 tracking-wider">
-                    SHUSHUFINDI · SUCUMBÍOS · ECUADOR
-                  </div>
-                  <div className="text-base sm:text-2xl font-black text-slate-900 mt-1 uppercase tracking-tight">
-                    CERTIFICADO DE APROBACIÓN
-                  </div>
-                  <div className="inline-block px-2 py-0.5 bg-emerald-900 text-amber-300 text-[8px] sm:text-[10px] font-bold rounded uppercase mt-0.5">
-                    {cert.specialty}
-                  </div>
+                  <button
+                    onClick={() => setSelectedCertificate(cert)}
+                    className="absolute inset-0 bg-slate-950/65 opacity-0 group-hover/thumb:opacity-100 backdrop-blur-[2px] transition-opacity flex items-center justify-center gap-2 text-white font-semibold text-xs"
+                  >
+                    <Maximize2 className="w-5 h-5 text-emerald-400" />
+                    <span>Ver documento y verificación completa</span>
+                  </button>
                 </div>
+              ) : (
+                /* Mini Certificate Render Simulation */
+                <div className="relative aspect-[16/10] w-full rounded-xl bg-gradient-to-br from-[#fdfbf7] via-white to-[#f7f3e8] text-slate-900 p-5 sm:p-7 border-4 border-emerald-900 shadow-inner flex flex-col justify-between overflow-hidden">
+                  <div className="absolute inset-1.5 border border-amber-600/40 pointer-events-none rounded" />
 
-                {/* Recipient */}
-                <div className="text-center my-1 sm:my-2">
-                  <div className="text-[8px] sm:text-[10px] text-slate-600">Se otorga a:</div>
-                  <div className="text-xs sm:text-lg font-black text-emerald-950 uppercase tracking-tight font-display">
-                    {cert.studentName}
+                  {/* Top header of diploma */}
+                  <div className="text-center">
+                    <div className="text-[9px] sm:text-[11px] font-bold tracking-wider text-emerald-950 uppercase">
+                      ACADEMIA SERTECEP AMAZÓNICO S.A.S.
+                    </div>
+                    <div className="text-[7px] sm:text-[9px] text-slate-500 tracking-wider">
+                      SHUSHUFINDI · SUCUMBÍOS · ECUADOR
+                    </div>
+                    <div className="text-base sm:text-2xl font-black text-slate-900 mt-1 uppercase tracking-tight">
+                      CERTIFICADO DE APROBACIÓN
+                    </div>
+                    <div className="inline-block px-2 py-0.5 bg-emerald-900 text-amber-300 text-[8px] sm:text-[10px] font-bold rounded uppercase mt-0.5">
+                      {cert.specialty}
+                    </div>
                   </div>
-                  <div className="text-[8px] sm:text-[10px] text-slate-500 font-mono">
-                    Cédula: {cert.studentDoc} · {cert.academicHours} Horas Lectivas
+
+                  {/* Recipient */}
+                  <div className="text-center my-1 sm:my-2">
+                    <div className="text-[8px] sm:text-[10px] text-slate-600">Se otorga a:</div>
+                    <div className="text-xs sm:text-lg font-black text-emerald-950 uppercase tracking-tight font-display">
+                      {cert.studentName}
+                    </div>
+                    <div className="text-[8px] sm:text-[10px] text-slate-500 font-mono">
+                      Cédula: {cert.studentDoc} · {cert.academicHours} Horas Lectivas
+                    </div>
                   </div>
+
+                  {/* Bottom Signatures & Seal */}
+                  <div className="flex items-center justify-between text-[7px] sm:text-[9px] text-slate-700 pt-1 border-t border-slate-200">
+                    <div>
+                      <div className="font-serif italic text-xs text-slate-900">A. de la Cruz</div>
+                      <div className="font-bold text-slate-900">{cert.instructorName}</div>
+                      <div className="text-slate-500">{cert.instructorTitle}</div>
+                    </div>
+
+                    {/* Golden seal */}
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-amber-400 border border-amber-600 flex flex-col items-center justify-center text-amber-950 font-bold text-[6px] sm:text-[7px] shadow">
+                      <span>SERTECEP</span>
+                      <span className="text-[8px] sm:text-[9px]">OFICIAL</span>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="font-serif italic text-xs text-slate-900">E. Pilozo</div>
+                      <div className="font-bold text-slate-900">{cert.directorName}</div>
+                      <div className="text-slate-500">Dirección Ejecutiva</div>
+                    </div>
+                  </div>
+
+                  {/* Hover overlay to expand */}
+                  <button
+                    onClick={() => setSelectedCertificate(cert)}
+                    className="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 backdrop-blur-[2px] transition-opacity flex items-center justify-center gap-2 text-white font-semibold text-xs"
+                  >
+                    <Maximize2 className="w-5 h-5 text-emerald-400" />
+                    <span>Clic para ver en pantalla completa</span>
+                  </button>
                 </div>
-
-                {/* Bottom Signatures & Seal */}
-                <div className="flex items-center justify-between text-[7px] sm:text-[9px] text-slate-700 pt-1 border-t border-slate-200">
-                  <div>
-                    <div className="font-serif italic text-xs text-slate-900">A. de la Cruz</div>
-                    <div className="font-bold text-slate-900">{cert.instructorName}</div>
-                    <div className="text-slate-500">{cert.instructorTitle}</div>
-                  </div>
-
-                  {/* Golden seal */}
-                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-amber-400 border border-amber-600 flex flex-col items-center justify-center text-amber-950 font-bold text-[6px] sm:text-[7px] shadow">
-                    <span>SERTECEP</span>
-                    <span className="text-[8px] sm:text-[9px]">OFICIAL</span>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="font-serif italic text-xs text-slate-900">E. Pilozo</div>
-                    <div className="font-bold text-slate-900">{cert.directorName}</div>
-                    <div className="text-slate-500">Dirección Ejecutiva</div>
-                  </div>
-                </div>
-
-                {/* Hover overlay to expand */}
-                <button
-                  onClick={() => setSelectedCertificate(cert)}
-                  className="absolute inset-0 bg-slate-950/50 opacity-0 group-hover:opacity-100 backdrop-blur-[2px] transition-opacity flex items-center justify-center gap-2 text-white font-semibold text-xs"
-                >
-                  <Maximize2 className="w-5 h-5 text-emerald-400" />
-                  <span>Clic para ver en pantalla completa</span>
-                </button>
-              </div>
+              )}
             </div>
 
             {/* Bottom Meta & Actions */}

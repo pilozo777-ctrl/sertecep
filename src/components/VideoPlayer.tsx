@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { 
   Play, Pause, RotateCcw, RotateCw, Volume2, VolumeX, 
-  Maximize, Minimize, Youtube, CheckCircle, Bookmark, Settings
+  Maximize, Minimize, CheckCircle, Bookmark
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -17,13 +17,90 @@ interface VideoPlayerProps {
   onSaveProgress: () => void;
 }
 
-const getYouTubeEmbedUrl = (url?: string): string | null => {
-  if (!url) return null;
-  if (!url.includes('youtube.com') && !url.includes('youtu.be')) return null;
-  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-  const match = url.match(regExp);
-  return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}?autoplay=1&enablejsapi=1` : null;
-};
+export interface ParsedVideo {
+  type: 'youtube' | 'vimeo' | 'html5' | 'embed';
+  src: string;
+  originalUrl: string;
+}
+
+/**
+ * Robust parser for YouTube, Vimeo, Google Drive and direct MP4/WebM videos
+ * Always ensures the player embeds and runs natively inside the platform!
+ */
+export function parseVideoSource(rawUrl?: string, secondaryUrl?: string): ParsedVideo {
+  // Collect non-empty candidates, ignoring generic 'youtube.com' without video ID
+  const cleanUrl = (u?: string) => {
+    if (!u) return '';
+    const trimmed = u.trim();
+    if (trimmed === 'https://youtube.com' || trimmed === 'https://www.youtube.com' || trimmed === 'http://youtube.com') {
+      return '';
+    }
+    return trimmed;
+  };
+
+  const primary = cleanUrl(secondaryUrl);
+  const secondary = cleanUrl(rawUrl);
+  const candidates = [primary, secondary].filter(Boolean);
+
+  for (const url of candidates) {
+    // 1. YouTube: Matches watch?v=ID, youtu.be/ID, embed/ID, shorts/ID, live/ID, etc.
+    const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+    if (ytMatch && ytMatch[1]) {
+      const videoId = ytMatch[1];
+      return {
+        type: 'youtube',
+        src: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`,
+        originalUrl: url
+      };
+    }
+
+    // 2. Vimeo
+    const vimeoMatch = url.match(/(?:vimeo\.com\/)(\d+)/i);
+    if (vimeoMatch && vimeoMatch[1]) {
+      return {
+        type: 'vimeo',
+        src: `https://player.vimeo.com/video/${vimeoMatch[1]}?title=0&byline=0&portrait=0`,
+        originalUrl: url
+      };
+    }
+
+    // 3. Google Drive preview
+    if (url.includes('drive.google.com')) {
+      const embedDrive = url.replace(/\/view(\?.*)?$/, '/preview');
+      return {
+        type: 'embed',
+        src: embedDrive,
+        originalUrl: url
+      };
+    }
+
+    // 4. Direct video files or cloud storage URLs (.mp4, .webm, googleapis, etc.)
+    if (url.match(/\.(mp4|webm|ogg|m4v)(\?.*)?$/i) || url.includes('commondatastorage.googleapis.com')) {
+      return {
+        type: 'html5',
+        src: url,
+        originalUrl: url
+      };
+    }
+  }
+
+  // Fallback to the first available URL or default sample video
+  const fallback = candidates[0] || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+  const ytFallbackMatch = fallback.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  if (ytFallbackMatch && ytFallbackMatch[1]) {
+    return {
+      type: 'youtube',
+      src: `https://www.youtube-nocookie.com/embed/${ytFallbackMatch[1]}?autoplay=0&rel=0&modestbranding=1&playsinline=1`,
+      originalUrl: fallback
+    };
+  }
+
+  return {
+    type: 'html5',
+    src: fallback,
+    originalUrl: fallback
+  };
+}
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   title,
@@ -39,9 +116,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const youtubeEmbed = getYouTubeEmbedUrl(youtubeUrl || (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? videoUrl : undefined));
-  const [useYouTubeMode, setUseYouTubeMode] = useState<boolean>(Boolean(youtubeEmbed));
-  
+  const parsed = parseVideoSource(videoUrl, youtubeUrl);
+
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [duration, setDuration] = useState<number>(0);
   const [volume, setVolume] = useState<number>(1);
@@ -52,13 +128,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [showSpeedMenu, setShowSpeedMenu] = useState<boolean>(false);
   const [notification, setNotification] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (youtubeEmbed) {
-      setUseYouTubeMode(true);
-    }
-  }, [youtubeEmbed]);
-
-  // Sync seek requests from parent (e.g. clicking a note)
+  // Sync seek requests from parent (e.g. clicking a note timestamp)
   useEffect(() => {
     if (videoRef.current && Math.abs(videoRef.current.currentTime - currentTime) > 1.5) {
       videoRef.current.currentTime = currentTime;
@@ -82,7 +152,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   const handleLoadedMetadata = () => {
     if (!videoRef.current) return;
-    setDuration(videoRef.current.duration || 732);
+    setDuration(videoRef.current.duration || 720);
   };
 
   const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,14 +221,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         spread: 60,
         origin: { y: 0.7 }
       });
-      triggerToast('¡Clase completada! Progreso actualizado con éxito');
+      triggerToast('¡Clase completada! Progreso registrado en tu historial');
     }
     onToggleComplete();
   };
 
   const handleSaveClick = () => {
     onSaveProgress();
-    triggerToast('Avance guardado automáticamente en el servidor');
+    triggerToast('Avance de lección guardado con éxito');
   };
 
   const triggerToast = (msg: string) => {
@@ -166,16 +236,14 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const openYouTube = () => {
-    window.open(youtubeUrl || 'https://youtube.com', '_blank', 'noopener,noreferrer');
-  };
+  const isIframeMode = parsed.type === 'youtube' || parsed.type === 'vimeo' || parsed.type === 'embed';
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 w-full min-w-0">
       {/* Toast Notification */}
       {notification && (
-        <div className="bg-emerald-500/90 text-slate-950 font-medium px-4 py-2 rounded-lg text-xs flex items-center gap-2 shadow-lg animate-fade-in border border-emerald-400">
-          <CheckCircle className="w-4 h-4" />
+        <div className="bg-emerald-500 text-slate-950 font-bold px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-2xl animate-fade-in border border-emerald-400">
+          <CheckCircle className="w-4 h-4 shrink-0" />
           <span>{notification}</span>
         </div>
       )}
@@ -185,21 +253,24 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
         ref={containerRef}
         onMouseEnter={() => setShowControls(true)}
         onMouseLeave={() => isPlaying && setShowControls(false)}
-        className="relative aspect-video w-full rounded-2xl bg-black overflow-hidden shadow-2xl border border-slate-800/80 group"
+        className="relative aspect-video w-full rounded-2xl sm:rounded-3xl bg-black overflow-hidden shadow-2xl border border-slate-800/80 group"
       >
-        {useYouTubeMode && youtubeEmbed ? (
+        {isIframeMode ? (
+          /* Embedded Player (YouTube / Vimeo / Drive) playing natively inside the classroom */
           <iframe
-            src={youtubeEmbed}
+            key={parsed.src}
+            src={parsed.src}
             title={title}
-            className="w-full h-full border-0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            className="w-full h-full border-0 rounded-2xl sm:rounded-3xl"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
           />
         ) : (
+          /* HTML5 Native Video Player */
           <>
             <video
               ref={videoRef}
-              src={videoUrl}
+              src={parsed.src}
               onTimeUpdate={handleTimeUpdate}
               onLoadedMetadata={handleLoadedMetadata}
               onPlay={() => setIsPlaying(true)}
@@ -209,181 +280,165 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
               playsInline
             />
 
-            {/* Ambient Big Play Overlay if paused */}
+            {/* Ambient Play Overlay if paused */}
             {!isPlaying && (
               <div 
                 onClick={togglePlay}
                 className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px] cursor-pointer transition-opacity"
               >
-                <div className="w-20 h-20 rounded-full bg-emerald-500/90 hover:bg-emerald-400 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/30 transform transition hover:scale-110">
-                  <Play className="w-9 h-9 fill-current ml-1" />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-emerald-500/95 hover:bg-emerald-400 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/30 transform transition hover:scale-110 active:scale-95">
+                  <Play className="w-7 h-7 sm:w-9 sm:h-9 fill-current ml-1" />
                 </div>
               </div>
             )}
-          </>
-        )}
 
-        {/* Top Video Header: Watermark & YouTube Switcher */}
-        <div className="absolute top-4 inset-x-4 flex items-center justify-between z-20 pointer-events-none">
-          <div className="flex items-center gap-2 bg-slate-950/70 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-800">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-semibold tracking-wide text-white">Sertecep Amazónico</span>
-          </div>
-
-          {youtubeEmbed && (
-            <button
-              onClick={() => setUseYouTubeMode(!useYouTubeMode)}
-              className="pointer-events-auto px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-slate-950/80 backdrop-blur-md text-slate-200 border border-slate-700 hover:text-white flex items-center gap-1.5 shadow"
-            >
-              <Youtube className="w-3.5 h-3.5 text-red-400" />
-              <span>{useYouTubeMode ? 'Ver en HTML5' : 'Ver en YouTube'}</span>
-            </button>
-          )}
-        </div>
-
-        {/* Bottom Control Overlay */}
-        <div className={`absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-4 transition-opacity duration-300 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
-          {/* Progress Slider */}
-          <div className="flex items-center gap-3 mb-2 group/slider">
-            <span className="text-xs font-mono text-emerald-400 select-none tabular-nums">
-              {formatTime(currentTime)}
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={duration || 100}
-              value={currentTime}
-              onChange={handleSeekChange}
-              className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:h-2 transition-all"
-            />
-            <span className="text-xs font-mono text-slate-400 select-none tabular-nums">
-              {formatTime(duration)}
-            </span>
-          </div>
-
-          {/* Action Row */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 sm:gap-4">
-              <button
-                onClick={togglePlay}
-                aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
-                className="w-9 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center transition-transform active:scale-95"
-              >
-                {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
-              </button>
-
-              <button
-                onClick={() => skipSeconds(-10)}
-                title="Retroceder 10s"
-                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-md transition"
-              >
-                <RotateCcw className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => skipSeconds(10)}
-                title="Adelantar 10s"
-                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-md transition"
-              >
-                <RotateCw className="w-4 h-4" />
-              </button>
-
-              {/* Volume Slider */}
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={toggleMute}
-                  className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-md transition"
-                >
-                  {isMuted || volume === 0 ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
-                </button>
+            {/* HTML5 Bottom Control Overlay */}
+            <div className={`absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent p-3 sm:p-4 transition-opacity duration-300 ${showControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
+              {/* Progress Slider */}
+              <div className="flex items-center gap-3 mb-2">
+                <span className="text-[11px] font-mono text-emerald-400 select-none tabular-nums">
+                  {formatTime(currentTime)}
+                </span>
                 <input
                   type="range"
                   min={0}
-                  max={1}
-                  step={0.05}
-                  value={isMuted ? 0 : volume}
-                  onChange={handleVolumeChange}
-                  className="w-14 sm:w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                  max={duration || 100}
+                  value={currentTime}
+                  onChange={handleSeekChange}
+                  className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:h-2 transition-all"
                 />
+                <span className="text-[11px] font-mono text-slate-400 select-none tabular-nums">
+                  {formatTime(duration)}
+                </span>
+              </div>
+
+              {/* Action Row */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <button
+                    onClick={togglePlay}
+                    aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
+                    className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center transition-transform active:scale-95"
+                  >
+                    {isPlaying ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current ml-0.5" />}
+                  </button>
+
+                  <button
+                    onClick={() => skipSeconds(-10)}
+                    title="Retroceder 10s"
+                    className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-md transition"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => skipSeconds(10)}
+                    title="Adelantar 10s"
+                    className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-md transition"
+                  >
+                    <RotateCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </button>
+
+                  {/* Volume Slider */}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={toggleMute}
+                      className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-md transition"
+                    >
+                      {isMuted || volume === 0 ? <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" /> : <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                    </button>
+                    <input
+                      type="range"
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      value={isMuted ? 0 : volume}
+                      onChange={handleVolumeChange}
+                      className="w-12 sm:w-20 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Right Controls */}
+                <div className="flex items-center gap-2 relative">
+                  {/* Speed Selector */}
+                  <button
+                    onClick={() => setShowSpeedMenu(!showSpeedMenu)}
+                    className="px-2 py-1 text-xs font-mono font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-md border border-slate-700/60"
+                  >
+                    {playbackSpeed}x
+                  </button>
+
+                  {showSpeedMenu && (
+                    <div className="absolute bottom-10 right-10 bg-slate-900 border border-slate-700 rounded-lg p-1 shadow-xl flex flex-col gap-1 z-20">
+                      {[0.75, 1, 1.25, 1.5, 2].map((speed) => (
+                        <button
+                          key={speed}
+                          onClick={() => handleSpeedSelect(speed)}
+                          className={`px-3 py-1 text-xs rounded font-mono text-left transition ${
+                            playbackSpeed === speed ? 'bg-emerald-500 text-slate-950 font-bold' : 'text-slate-300 hover:bg-slate-800'
+                          }`}
+                        >
+                          {speed}x
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={toggleFullscreen}
+                    aria-label="Pantalla completa"
+                    className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-md transition"
+                  >
+                    {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             </div>
+          </>
+        )}
 
-            {/* Right Controls */}
-            <div className="flex items-center gap-2 relative">
-              {/* Speed Selector */}
-              <button
-                onClick={() => setShowSpeedMenu(!showSpeedMenu)}
-                className="px-2 py-1 text-xs font-mono font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-md border border-slate-700/60"
-              >
-                {playbackSpeed}x
-              </button>
-
-              {showSpeedMenu && (
-                <div className="absolute bottom-10 right-10 bg-slate-900 border border-slate-700 rounded-lg p-1 shadow-xl flex flex-col gap-1 z-20">
-                  {[0.75, 1, 1.25, 1.5, 2].map((speed) => (
-                    <button
-                      key={speed}
-                      onClick={() => handleSpeedSelect(speed)}
-                      className={`px-3 py-1 text-xs rounded font-mono text-left transition ${
-                        playbackSpeed === speed ? 'bg-emerald-500 text-slate-950 font-bold' : 'text-slate-300 hover:bg-slate-800'
-                      }`}
-                    >
-                      {speed}x
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <button
-                onClick={toggleFullscreen}
-                aria-label="Pantalla completa"
-                className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-md transition"
-              >
-                {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-              </button>
-            </div>
+        {/* Top Watermark Badge: confirms it runs inside Sertecep virtual classroom */}
+        <div className="absolute top-3 left-3 sm:top-4 sm:left-4 z-20 pointer-events-none">
+          <div className="flex items-center gap-2 bg-slate-950/85 backdrop-blur-md px-3 py-1.5 rounded-xl border border-slate-800/90 shadow-md">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[11px] font-bold tracking-wide text-white">Aula Virtual Sertecep</span>
+            <span className="text-[9px] text-emerald-400 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded">
+              EN LÍNEA
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Control Banner matching screenshot: Abrir en YouTube & Acciones */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 sm:p-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <div className="text-xs text-slate-400">
-            <span className="font-semibold text-slate-300">Visualización flexible:</span>
-            <span className="hidden sm:inline ml-1">Puedes ver la lección en el aula o abrirla en reproductor externo.</span>
-          </div>
+      {/* Control Banner under video: Native completion & save actions */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center gap-2 text-xs">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+          <span className="text-slate-300 font-medium">
+            Reproduciendo dentro del Aula Virtual
+          </span>
+          <span className="text-slate-500 hidden md:inline">· Progreso automático en tu cuenta</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {youtubeUrl && (
-            <button
-              onClick={openYouTube}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-red-600/90 hover:bg-red-500 rounded-lg transition-colors shadow-sm"
-            >
-              <Youtube className="w-3.5 h-3.5" />
-              Abrir en YouTube
-            </button>
-          )}
-
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
           <button
             onClick={handleSaveClick}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 hover:text-white rounded-lg border border-slate-700/60 transition-colors"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-800 hover:bg-slate-700 hover:text-white rounded-xl border border-slate-700/60 transition active:scale-98"
           >
             <Bookmark className="w-3.5 h-3.5 text-emerald-400" />
-            Guardar avance
+            <span>Guardar avance</span>
           </button>
 
           <button
             onClick={handleCompleteClick}
-            className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+            className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl transition-all active:scale-98 ${
               isCompleted 
                 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' 
                 : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20'
             }`}
           >
             <CheckCircle className="w-3.5 h-3.5" />
-            {isCompleted ? 'Completada ✓' : 'Marcar completada'}
+            <span>{isCompleted ? 'Completada ✓' : 'Marcar completada'}</span>
           </button>
         </div>
       </div>

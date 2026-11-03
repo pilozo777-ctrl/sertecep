@@ -161,4 +161,16 @@ export interface CertificateRecord {
   instructorTitle: string;
   directorName: string;
   directorTitle: string;
+  // Blockchain & Digital Upload fields (Zeyo ID / Polygon / PDF / Foto)
+  blockchainUrl?: string;
+  blockchainNetwork?: string;
+  blockchainTxHash?: string;
+  blockchainIssuerKey?: string;
+  digitalFileUrl?: string;
+  digitalFileType?: 'image' | 'pdf' | 'blockchain_embed';
+  digitalFileName?: string;
+  officialRuc?: string;
+  expedienteNum?: string;
+  signerName?: string;
+  signerTitle?: string;
 }

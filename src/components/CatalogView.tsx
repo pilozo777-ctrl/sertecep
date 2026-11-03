@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Course } from '../types';
+import { COURSE_FALLBACK_IMAGES } from '../data/mockData';
 import { 
   Sparkles, CheckCircle2, BookOpen, Clock, Award, 
   Search, ShieldCheck, ChevronRight, X, ArrowRight
@@ -110,6 +111,10 @@ export const CatalogView: React.FC<CatalogViewProps> = ({
                     src={course.coverImage}
                     alt={course.title}
                     referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = COURSE_FALLBACK_IMAGES[course.id] || COURSE_FALLBACK_IMAGES.default;
+                    }}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent" />

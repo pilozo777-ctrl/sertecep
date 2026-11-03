@@ -58,6 +58,14 @@ export const initialUserProfile: UserProfile = {
   streakDays: 14,
 };
 
+export const COURSE_FALLBACK_IMAGES: Record<string, string> = {
+  'course-ofimatica': 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=80',
+  'course-web-design': 'https://images.unsplash.com/photo-1547658719-da2b51169166?auto=format&fit=crop&w=800&q=80',
+  'course-marketing': 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=800&q=80',
+  'course-mia-academico': 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=800&q=80',
+  'default': 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80'
+};
+
 // Exactly requested 4 courses:
 // 1. Ofimática
 // 2. Diseño y Desarrollo Web
@@ -72,7 +80,7 @@ export const sampleCourses: Course[] = [
     description: 'Capacitación integral práctica orientada a la productividad administrativa y corporativa: manejo experto de tablas dinámicas, automatización de planillas y balances con macros, gestión documental oficial y tableros de control.',
     category: 'Ofimática & BI',
     level: 'Principiante a Avanzado',
-    coverImage: '/src/assets/images/course_excel_bi_1793675125209.jpg',
+    coverImage: '/assets/courses/ofimatica.jpg',
     instructor: {
       name: 'Lic. Mónica Benalcázar',
       role: 'Consultora en Gestión de Datos y Ofimática',
@@ -158,7 +166,7 @@ export const sampleCourses: Course[] = [
     description: 'Aprende desde los fundamentos visuales con Figma, HTML5 semántico, CSS3, Tailwind CSS y JavaScript moderno, hasta el desarrollo de aplicaciones web interactivas con React, bases de datos y despliegue en la nube.',
     category: 'Sistemas Web',
     level: 'Principiante a Avanzado',
-    coverImage: '/src/assets/images/course_sistemas_cloud_1793675125521.jpg',
+    coverImage: '/assets/courses/desarrollo_web.jpg',
     instructor: {
       name: 'Ing. Arturo de la Cruz',
       role: 'Director Académico & Docente Principal',
@@ -187,7 +195,7 @@ export const sampleCourses: Course[] = [
             duration: '19:40',
             durationSeconds: 1180,
             videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-            youtubeUrl: 'https://youtube.com',
+            youtubeUrl: 'https://www.youtube.com/watch?v=kUMe1FH4CHE',
             summary: 'Conoce cómo se estructuran las plataformas web profesionales de alto rendimiento, viewport adaptativo para móviles y buenas prácticas de código.',
             keyPoints: ['HTML5 semántico y accesibilidad', 'Flexbox y CSS Grid', 'Mobile First Design'],
             completed: true,
@@ -244,7 +252,7 @@ export const sampleCourses: Course[] = [
     description: 'Curso práctico enfocado en emprendedores, comercios y profesionales de la región amazónica y Ecuador que desean aumentar sus ventas: diseño publicitario rápido, campañas de Meta Ads, copywriting con inteligencia artificial y embudos de prospección.',
     category: 'Inteligencia Artificial',
     level: 'Principiante a Avanzado',
-    coverImage: '/src/assets/images/course_flutter_ai_1793675124066.jpg',
+    coverImage: '/assets/courses/marketing.jpg',
     instructor: {
       name: 'Lic. David Morales',
       role: 'Especialista en Marketing Digital y Crecimiento Comercial',
@@ -273,7 +281,7 @@ export const sampleCourses: Course[] = [
             duration: '16:45',
             durationSeconds: 1005,
             videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4',
-            youtubeUrl: 'https://youtube.com',
+            youtubeUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
             summary: 'Técnicas de redacción publicitaria asistida por IA para publicaciones que conectan con los clientes y generan consultas directas.',
             keyPoints: ['Estructura AIDA (Atención, Interés, Deseo, Acción)', 'Prompts de redacción comercial', 'Calendario de publicaciones'],
             completed: true,
@@ -308,7 +316,7 @@ export const sampleCourses: Course[] = [
     description: 'Espacio académico de acompañamiento continuo para todos los estudiantes: herramientas de estudio digital, técnicas de aprendizaje acelerado, seguimiento de proyectos y asesoría docente personalizada para garantizar tu certificación.',
     category: 'Inteligencia Artificial',
     level: 'Principiante a Avanzado',
-    coverImage: '/src/assets/images/hero_sertecep_campus_1793675123377.jpg',
+    coverImage: '/assets/courses/paso_mia.jpg',
     instructor: {
       name: 'Dirección Académica Sertecep',
       role: 'Tutoría y Soporte al Estudiante',
@@ -433,7 +441,48 @@ export const sampleStudentsList: StudentEnrollment[] = [
   }
 ];
 
+export const OFFICIAL_CERTIFICATE_SCAN = '/assets/aistudio/image_8518c087.png';
+export const OFFICIAL_ZEYO_BLOCKCHAIN_URL = 'https://id.zeyo.io/certificates/7d7562b6-0331-4594-ae2b-94ab725b25e1';
+export const OFFICIAL_BLOCKCHAIN_TX = '0x7aa1075bd5bda38bd15934e218db1e83f71045ed4c5a1917e42026b786bb6565';
+export const OFFICIAL_BLOCKCHAIN_PUBKEY = 'ecdsa-koblitz-pubkey:0x1c74D6A8Cd9f72d878504e0c5EF845AA8BeFccc4';
+export const OFFICIAL_RUC = '2191773470001';
+export const OFFICIAL_EXPEDIENTE = '335593';
+export const OFFICIAL_SIGNER_NAME = 'Mgtr. Edinson Pilozo';
+
 export const sampleCertificates: CertificateRecord[] = [
+  {
+    id: 'cert-zeyo-official',
+    code: '7d7562b6-0331-4594-ae2b-94ab725b25e1',
+    courseId: 'course-ofimatica',
+    courseTitle: 'MANEJO DE HERRAMIENTAS INFORMATICAS Y PAQUETES DE OFFICE',
+    specialty: 'Curso Vacacional & Capacitación de Herramientas Ofimáticas y Productividad',
+    academicHours: 160,
+    issueDate: '26/10/2026',
+    startDate: '01/08/2026',
+    endDate: '26/10/2026',
+    studentName: 'STEVEN MATEO GRUEZO CORTEZ',
+    studentDoc: '2150271274',
+    studentPhoto: '/assets/aistudio/image_f29cb282.png',
+    institution: 'Academia de Enseñanza Técnica y Profesional SERTECEP Amazónico',
+    institutionCity: 'Shushufindi, Sucumbíos - Ecuador',
+    verificationUrl: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+    qrPayload: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+    instructorName: 'Mgtr. Edinson Pilozo',
+    instructorTitle: 'Director Académico & Representante Legal',
+    directorName: 'Mgtr. Edinson Pilozo',
+    directorTitle: 'Expediente Superintendencia de Compañías: 335593',
+    blockchainUrl: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+    blockchainNetwork: 'Polygon (POS Blockchain)',
+    blockchainTxHash: OFFICIAL_BLOCKCHAIN_TX,
+    blockchainIssuerKey: OFFICIAL_BLOCKCHAIN_PUBKEY,
+    digitalFileUrl: OFFICIAL_CERTIFICATE_SCAN,
+    digitalFileType: 'image',
+    digitalFileName: 'Certificado_Oficial_Sertecep_Blockchain.png',
+    officialRuc: OFFICIAL_RUC,
+    expedienteNum: OFFICIAL_EXPEDIENTE,
+    signerName: OFFICIAL_SIGNER_NAME,
+    signerTitle: 'Director General',
+  },
   {
     id: 'cert-1',
     code: 'ECN-CERT-2026-WEB-0475',
@@ -449,12 +498,23 @@ export const sampleCertificates: CertificateRecord[] = [
     studentPhoto: '/assets/aistudio/image_f29cb282.png',
     institution: 'Academia Sertecep Amazónico S.A.S.',
     institutionCity: 'Shushufindi, Sucumbíos - Ecuador',
-    verificationUrl: 'https://sertecep-amazonico.edu.ec/verificar/ECN-CERT-2026-WEB-0475',
-    qrPayload: 'https://sertecep-amazonico.edu.ec/verificar/ECN-CERT-2026-WEB-0475',
+    verificationUrl: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+    qrPayload: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
     instructorName: 'Ing. Arturo de la Cruz',
     instructorTitle: 'Docente Especialista',
-    directorName: 'Gerencia General Sertecep',
-    directorTitle: 'Dirección Académica Regional'
+    directorName: OFFICIAL_SIGNER_NAME,
+    directorTitle: 'Dirección Académica Regional · RUC 2191773470001',
+    blockchainUrl: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+    blockchainNetwork: 'Polygon Blockchain (Zeyo ID)',
+    blockchainTxHash: OFFICIAL_BLOCKCHAIN_TX,
+    blockchainIssuerKey: OFFICIAL_BLOCKCHAIN_PUBKEY,
+    digitalFileUrl: OFFICIAL_CERTIFICATE_SCAN,
+    digitalFileType: 'image',
+    digitalFileName: 'Certificado_Digital_Web_Pilozo.png',
+    officialRuc: OFFICIAL_RUC,
+    expedienteNum: OFFICIAL_EXPEDIENTE,
+    signerName: OFFICIAL_SIGNER_NAME,
+    signerTitle: 'Director Académico',
   },
   {
     id: 'cert-2',
@@ -471,12 +531,23 @@ export const sampleCertificates: CertificateRecord[] = [
     studentPhoto: '/assets/aistudio/image_f29cb282.png',
     institution: 'Academia Sertecep Amazónico S.A.S.',
     institutionCity: 'Shushufindi, Sucumbíos - Ecuador',
-    verificationUrl: 'https://sertecep-amazonico.edu.ec/verificar/ECN-CERT-2026-OFIMATICA-88',
-    qrPayload: 'https://sertecep-amazonico.edu.ec/verificar/ECN-CERT-2026-OFIMATICA-88',
+    verificationUrl: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+    qrPayload: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
     instructorName: 'Lic. Mónica Benalcázar',
     instructorTitle: 'Docente del Curso',
-    directorName: 'Gerencia General Sertecep',
-    directorTitle: 'RUC 2191754820001'
+    directorName: OFFICIAL_SIGNER_NAME,
+    directorTitle: 'RUC 2191773470001 · Expediente 335593',
+    blockchainUrl: OFFICIAL_ZEYO_BLOCKCHAIN_URL,
+    blockchainNetwork: 'Polygon Blockchain (Zeyo ID)',
+    blockchainTxHash: OFFICIAL_BLOCKCHAIN_TX,
+    blockchainIssuerKey: OFFICIAL_BLOCKCHAIN_PUBKEY,
+    digitalFileUrl: OFFICIAL_CERTIFICATE_SCAN,
+    digitalFileType: 'image',
+    digitalFileName: 'Certificado_Oficial_Ofimatica.png',
+    officialRuc: OFFICIAL_RUC,
+    expedienteNum: OFFICIAL_EXPEDIENTE,
+    signerName: OFFICIAL_SIGNER_NAME,
+    signerTitle: 'Director Académico',
   }
 ];
 

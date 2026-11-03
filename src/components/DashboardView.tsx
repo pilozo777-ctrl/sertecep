@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Course, UserProfile } from '../types';
-import { OFFICIAL_SERTECEP_LOGO, OFFICIAL_SERTECEP_PORTADA } from '../data/mockData';
+import { OFFICIAL_SERTECEP_LOGO, OFFICIAL_SERTECEP_PORTADA, COURSE_FALLBACK_IMAGES } from '../data/mockData';
 import { 
   Play, BookOpen, Clock, Award, CheckCircle2, 
   ArrowRight, Sparkles, Filter, Search, Layers, Zap
@@ -215,6 +215,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       src={course.coverImage}
                       alt={course.title}
                       referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        e.currentTarget.onerror = null;
+                        e.currentTarget.src = COURSE_FALLBACK_IMAGES[course.id] || COURSE_FALLBACK_IMAGES.default;
+                      }}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />

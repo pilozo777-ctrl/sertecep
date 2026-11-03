@@ -173,6 +173,7 @@ export default function App() {
             course={selectedCourse}
             initialLessonId={targetLessonId}
             userProfile={userProfile}
+            certificate={displayedCertificates.find(c => c.courseId === selectedCourse.id) || displayedCertificates[0]}
             onBackToDashboard={() => setCurrentView(isAdmin ? 'admin' : 'dashboard')}
             onUpdateCourseProgress={handleUpdateCourseProgress}
           />
@@ -215,10 +216,11 @@ export default function App() {
       </main>
 
       {/* Footer with round logo and institution details */}
-      <footer className="border-t border-slate-800/80 bg-slate-950/90 py-8 px-4 sm:px-8 mt-16 text-slate-500 text-xs">
-        <div className="max-w-[1440px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-900 border border-emerald-500/30 p-0.5 shrink-0">
+      {/* Footer with round logo and institution details - 100% responsive */}
+      <footer className="border-t border-slate-800/80 bg-slate-950/95 py-6 sm:py-8 px-4 sm:px-8 mt-16 text-slate-400 text-xs w-full max-w-full overflow-hidden pb-28 sm:pb-8">
+        <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-slate-900 border border-emerald-500/30 p-0.5 shrink-0 shadow">
               <img
                 src={OFFICIAL_SERTECEP_LOGO}
                 alt="Logo Sertecep Amazónico"
@@ -226,20 +228,20 @@ export default function App() {
                 className="w-full h-full object-contain"
               />
             </div>
-            <div>
-              <span className="font-semibold text-slate-300">Academia Sertecep Amazónico S.A.S.</span>
-              <span className="mx-2">·</span>
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center md:justify-start gap-1 sm:gap-2 text-[11px] sm:text-xs">
+              <span className="font-bold text-white">Academia Sertecep Amazónico S.A.S.</span>
+              <span className="hidden sm:inline text-slate-600">·</span>
               <span>RUC: 2191754820001</span>
-              <span className="mx-2">·</span>
+              <span className="hidden sm:inline text-slate-600">·</span>
               <span className="text-slate-400">Shushufindi, Sucumbíos - Ecuador</span>
-              <span className="mx-2">·</span>
+              <span className="hidden sm:inline text-slate-600">·</span>
               <span className="font-mono text-emerald-400">WhatsApp Oficial: {SUPPORT_WHATSAPP_NUMBER}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-slate-400">
+          <div className="flex items-center justify-center gap-3 text-slate-400 text-[11px] sm:text-xs pt-2 md:pt-0 border-t border-slate-800/60 md:border-t-0">
             <span>© 2026 Aula Virtual Sertecep</span>
-            <span>·</span>
+            <span className="text-slate-700">·</span>
             <span>Tecnología, educación y oportunidad</span>
           </div>
         </div>
