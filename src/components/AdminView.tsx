@@ -21,6 +21,7 @@ import {
 import confetti from 'canvas-confetti';
 import { CertificateDocument } from './CertificateDocument';
 import { parseVideoSource } from './VideoPlayer';
+import { isPdfDocument } from '../utils/documentUtils';
 
 interface AdminViewProps {
   courses: Course[];
@@ -395,12 +396,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const isPdf = isPdfDocument(undefined, undefined, file.name) || file.type === 'application/pdf';
     setManualCertFileName(file.name);
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
         setManualCertDigitalFile(reader.result);
-        triggerToast(`Archivo digital "${file.name}" cargado exitosamente.`);
+        triggerToast(`Archivo digital ${isPdf ? 'PDF' : 'de imagen'} "${file.name}" cargado y reconocido exitosamente.`);
       }
     };
     reader.readAsDataURL(file);
@@ -414,6 +416,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
     if (!student || !course) return;
 
     const newCertCode = `ECN-CERT-2026-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    const isPdf = isPdfDocument(manualCertDigitalFile, undefined, manualCertFileName);
+
     const newRecord: CertificateRecord = {
       id: `cert-manual-${Date.now()}`,
       code: newCertCode,
@@ -440,7 +444,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       blockchainTxHash: manualCertTxHash.trim() || OFFICIAL_BLOCKCHAIN_TX,
       blockchainIssuerKey: OFFICIAL_BLOCKCHAIN_PUBKEY,
       digitalFileUrl: manualCertDigitalFile || OFFICIAL_CERTIFICATE_SCAN,
-      digitalFileType: manualCertFileName.toLowerCase().endsWith('.pdf') ? 'pdf' : 'image',
+      digitalFileType: isPdf ? 'pdf' : 'image',
       digitalFileName: manualCertFileName,
       officialRuc: OFFICIAL_RUC,
       expedienteNum: OFFICIAL_EXPEDIENTE,
@@ -1925,16 +1929,42 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     </div>
 
                     {manualCertDigitalFile && (
-                      <div className="relative w-full h-24 rounded-lg bg-black border border-slate-800 overflow-hidden flex items-center justify-center">
-                        <img
-                          src={manualCertDigitalFile}
-                          alt="Previsualización"
-                          className="h-full object-contain"
-                        />
-                        <span className="absolute bottom-1 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[9px] text-emerald-400 font-mono">
-                          Vista previa lista
-                        </span>
-                      </div>
+                      isPdfDocument(manualCertDigitalFile, undefined, manualCertFileName) ? (
+                        <div className="relative w-full p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0 shadow">
+                              <FileText className="w-5 h-5" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="px-1.5 py-0.5 rounded bg-red-500/30 text-red-300 font-mono font-bold text-[9px]">
+                                  DOCUMENTO PDF
+                                </span>
+                                <span className="text-white text-xs font-bold truncate max-w-[200px]">
+                                  {manualCertFileName}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-emerald-400 font-medium mt-0.5">
+                                Documento PDF reconocido y listo para emitir con visor integrado
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-mono px-2.5 py-1 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-bold shrink-0">
+                            Reconocido
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="relative w-full h-24 rounded-lg bg-black border border-slate-800 overflow-hidden flex items-center justify-center">
+                          <img
+                            src={manualCertDigitalFile}
+                            alt="Previsualización"
+                            className="h-full object-contain"
+                          />
+                          <span className="absolute bottom-1 right-2 px-1.5 py-0.5 rounded bg-black/80 text-[9px] text-emerald-400 font-mono">
+                            Vista previa lista
+                          </span>
+                        </div>
+                      )
                     )}
                   </div>
                 )}

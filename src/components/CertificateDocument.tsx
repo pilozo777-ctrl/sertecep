@@ -1,5 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { CertificateRecord } from '../types';
+import { CertificateMediaViewer } from './CertificateMediaViewer';
+import { getCertificateDownloadFilename, isPdfDocument } from '../utils/documentUtils';
 import { 
   CheckCircle2, Download, ExternalLink, Printer, ShieldCheck, 
   FileText, Image as ImageIcon, Link2, Copy, Check, Sparkles, X, Share2, Award, Eye
@@ -37,6 +39,7 @@ export const CertificateDocument: React.FC<CertificateProps> = ({ certificate, o
   const officialRuc = certificate.officialRuc || OFFICIAL_RUC;
   const expediente = certificate.expedienteNum || OFFICIAL_EXPEDIENTE;
   const signer = certificate.signerName || OFFICIAL_SIGNER_NAME;
+  const isPdf = isPdfDocument(digitalFile, certificate.digitalFileType, certificate.digitalFileName);
 
   const handleCopy = (text: string, type: 'tx' | 'link') => {
     navigator.clipboard.writeText(text);
@@ -53,7 +56,7 @@ export const CertificateDocument: React.FC<CertificateProps> = ({ certificate, o
     confetti({ particleCount: 60, spread: 60 });
     const link = document.createElement('a');
     link.href = digitalFile;
-    link.download = certificate.digitalFileName || `Certificado_Oficial_Sertecep_${certificate.code}.png`;
+    link.download = getCertificateDownloadFilename(certificate);
     link.target = '_blank';
     link.click();
   };
@@ -232,7 +235,7 @@ export const CertificateDocument: React.FC<CertificateProps> = ({ certificate, o
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-950 bg-emerald-400 hover:bg-emerald-300 rounded-xl shadow-lg transition-all"
             >
               <Download className="w-4 h-4" />
-              <span>Descargar Foto / Archivo</span>
+              <span>{isPdf ? 'Descargar Certificado PDF' : 'Descargar Foto / Archivo'}</span>
             </button>
           )}
 
@@ -275,8 +278,8 @@ export const CertificateDocument: React.FC<CertificateProps> = ({ certificate, o
               : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
           }`}
         >
-          <ImageIcon className="w-4 h-4" />
-          <span>Certificado Digital Oficial (Foto / PDF)</span>
+          {isPdf ? <FileText className="w-4 h-4 text-red-400" /> : <ImageIcon className="w-4 h-4" />}
+          <span>Certificado Digital Oficial ({isPdf ? 'Documento PDF' : 'Foto / Scan'})</span>
         </button>
 
         <button
@@ -336,14 +339,12 @@ export const CertificateDocument: React.FC<CertificateProps> = ({ certificate, o
               </div>
             </div>
 
-            {/* Certificate Image Viewer */}
-            <div className="relative w-full rounded-xl overflow-hidden border border-slate-700/80 bg-black/60 shadow-inner flex items-center justify-center p-1 sm:p-2">
-              <img
-                src={digitalFile}
-                alt={`Certificado Oficial de ${certificate.studentName}`}
-                className="w-full h-auto max-h-[75vh] object-contain rounded-lg shadow-2xl"
-              />
-            </div>
+            {/* Certificate Media Viewer (Image or PDF) */}
+            <CertificateMediaViewer
+              certificate={certificate}
+              isThumbnail={false}
+              className="w-full"
+            />
 
             {/* Metadata Footer */}
             <div className="w-full grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-3 border-t border-slate-800 text-xs text-slate-400">
@@ -469,14 +470,13 @@ export const CertificateDocument: React.FC<CertificateProps> = ({ certificate, o
               </div>
             </div>
 
-            {/* Embedded image preview */}
-            <div className="w-full rounded-xl overflow-hidden border border-slate-700/80 bg-black/80 flex items-center justify-center p-2">
-              <img
-                src={digitalFile}
-                alt="Certificado Blockchain Sertecep"
-                className="w-full h-auto max-h-[60vh] object-contain rounded-lg"
-              />
-            </div>
+            {/* Embedded image or PDF preview */}
+            <CertificateMediaViewer
+              certificate={certificate}
+              isThumbnail={false}
+              maxHeightClass="max-h-[55vh]"
+              className="w-full"
+            />
 
             <div className="p-3 bg-slate-950 rounded-xl border border-slate-800/80 text-xs text-slate-400 flex items-center justify-between">
               <span>RUC Oficial: <strong className="text-white">{officialRuc}</strong></span>

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { CertificateRecord, UserProfile } from '../types';
 import { CertificateDocument } from './CertificateDocument';
+import { CertificateMediaViewer } from './CertificateMediaViewer';
+import { getCertificateDownloadFilename, isPdfDocument } from '../utils/documentUtils';
 import { 
   Award, CheckCircle2, Download, Maximize2, ShieldCheck, 
-  ExternalLink, Calendar, Clock, Hash, X, Check
+  ExternalLink, Calendar, Clock, Hash, X, Check, FileText
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -28,7 +30,7 @@ export const CertificatesView: React.FC<CertificatesViewProps> = ({
 
     if (cert.digitalFileUrl) {
       const link = document.createElement('a');
-      link.download = cert.digitalFileName || `Certificado_Oficial_${cert.code}.png`;
+      link.download = getCertificateDownloadFilename(cert);
       link.href = cert.digitalFileUrl;
       link.target = '_blank';
       link.click();
@@ -209,25 +211,12 @@ export const CertificatesView: React.FC<CertificatesViewProps> = ({
             {/* Visual Certificate Preview Card */}
             <div className="relative p-4 sm:p-6 bg-gradient-to-br from-slate-950 via-[#0a1017] to-slate-950 border-b border-slate-800/80">
               {cert.digitalFileUrl ? (
-                /* Real Digital Certificate Scan (e.g. from image_8518c087.png or uploaded) */
-                <div className="relative aspect-[16/10] w-full rounded-xl bg-black border-2 border-emerald-500/40 shadow-xl overflow-hidden group/thumb flex items-center justify-center">
-                  <img
-                    src={cert.digitalFileUrl}
-                    alt={`Certificado Digital de ${cert.studentName}`}
-                    className="w-full h-full object-contain"
-                  />
-                  <div className="absolute top-2 left-2 px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-mono text-[9px] font-bold flex items-center gap-1 shadow">
-                    <ShieldCheck className="w-3 h-3" />
-                    <span>POLYGON BLOCKCHAIN · ZEYO ID</span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedCertificate(cert)}
-                    className="absolute inset-0 bg-slate-950/65 opacity-0 group-hover/thumb:opacity-100 backdrop-blur-[2px] transition-opacity flex items-center justify-center gap-2 text-white font-semibold text-xs"
-                  >
-                    <Maximize2 className="w-5 h-5 text-emerald-400" />
-                    <span>Ver documento y verificación completa</span>
-                  </button>
-                </div>
+                /* Real Digital Certificate (Image or PDF) */
+                <CertificateMediaViewer
+                  certificate={cert}
+                  isThumbnail={true}
+                  onExpand={() => setSelectedCertificate(cert)}
+                />
               ) : (
                 /* Mini Certificate Render Simulation */
                 <div className="relative aspect-[16/10] w-full rounded-xl bg-gradient-to-br from-[#fdfbf7] via-white to-[#f7f3e8] text-slate-900 p-5 sm:p-7 border-4 border-emerald-900 shadow-inner flex flex-col justify-between overflow-hidden">
