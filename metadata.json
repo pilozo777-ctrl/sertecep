@@ -1,0 +1,8 @@
+{
+  "name": "Academia Sertecep Amazónico - Aula Virtual",
+  "description": "Campus Virtual y Plataforma de Aprendizaje Tecnológico de Academia Sertecep Amazónico (Sucumbíos, Ecuador). Cursos de Desarrollo Web, Apps Móviles con IA, Ofimática y Certificación Profesional.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
