@@ -24,11 +24,37 @@ export interface ParsedVideo {
 }
 
 /**
+ * Extracts a valid YouTube 11-character video ID from any URL format
+ */
+export function extractYouTubeId(rawUrl?: string): string | null {
+  if (!rawUrl) return null;
+  const str = rawUrl.trim();
+  if (!str) return null;
+
+  // youtu.be/<id>
+  const shortMatch = str.match(/(?:youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/i);
+  if (shortMatch && shortMatch[1]) return shortMatch[1];
+
+  // youtube.com/watch?v=<id>
+  const watchMatch = str.match(/[?&]v=([a-zA-Z0-9_-]{11})/i);
+  if (watchMatch && watchMatch[1]) return watchMatch[1];
+
+  // youtube.com/embed/<id>
+  const embedMatch = str.match(/youtube(?:-nocookie)?\.com\/embed\/([a-zA-Z0-9_-]{11})/i);
+  if (embedMatch && embedMatch[1]) return embedMatch[1];
+
+  // general regex
+  const genMatch = str.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i);
+  if (genMatch && genMatch[1]) return genMatch[1];
+
+  return null;
+}
+
+/**
  * Robust parser for YouTube, Vimeo, Google Drive and direct MP4/WebM videos
  * Always ensures the player embeds and runs natively inside the platform!
  */
 export function parseVideoSource(rawUrl?: string, secondaryUrl?: string): ParsedVideo {
-  // Collect non-empty candidates, ignoring generic 'youtube.com' without video ID
   const cleanUrl = (u?: string) => {
     if (!u) return '';
     const trimmed = u.trim();
@@ -43,13 +69,12 @@ export function parseVideoSource(rawUrl?: string, secondaryUrl?: string): Parsed
   const candidates = [primary, secondary].filter(Boolean);
 
   for (const url of candidates) {
-    // 1. YouTube: Matches watch?v=ID, youtu.be/ID, embed/ID, shorts/ID, live/ID, etc.
-    const ytMatch = url.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
-    if (ytMatch && ytMatch[1]) {
-      const videoId = ytMatch[1];
+    // 1. YouTube check: ID extraction
+    const ytId = extractYouTubeId(url);
+    if (ytId) {
       return {
         type: 'youtube',
-        src: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`,
+        src: `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`,
         originalUrl: url
       };
     }
@@ -86,11 +111,11 @@ export function parseVideoSource(rawUrl?: string, secondaryUrl?: string): Parsed
 
   // Fallback to the first available URL or default sample video
   const fallback = candidates[0] || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-  const ytFallbackMatch = fallback.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
-  if (ytFallbackMatch && ytFallbackMatch[1]) {
+  const ytFallbackId = extractYouTubeId(fallback);
+  if (ytFallbackId) {
     return {
       type: 'youtube',
-      src: `https://www.youtube-nocookie.com/embed/${ytFallbackMatch[1]}?autoplay=0&rel=0&modestbranding=1&playsinline=1`,
+      src: `https://www.youtube-nocookie.com/embed/${ytFallbackId}?autoplay=0&rel=0&modestbranding=1&playsinline=1`,
       originalUrl: fallback
     };
   }

@@ -43,6 +43,7 @@ export interface StudentEnrollment {
   phone: string;
   courseId: string;
   courseTitle: string;
+  enrolledCourseIds?: string[];
   progressPercent: number;
   completedLessons: number;
   totalLessons: number;
@@ -121,7 +122,7 @@ export interface Course {
   badgeTitle: string;
   tagline: string;
   description: string;
-  category: 'Desarrollo Móvil' | 'Sistemas Web' | 'Ofimática & BI' | 'Inteligencia Artificial';
+  category: string;
   level: 'Principiante a Avanzado' | 'Intermedio' | 'Avanzado';
   coverImage: string;
   instructor: {

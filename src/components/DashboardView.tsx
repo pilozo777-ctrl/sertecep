@@ -1,14 +1,20 @@
 import React, { useState } from 'react';
 import { Course, UserProfile } from '../types';
-import { OFFICIAL_SERTECEP_LOGO, OFFICIAL_SERTECEP_PORTADA, COURSE_FALLBACK_IMAGES } from '../data/mockData';
+import { 
+  OFFICIAL_SERTECEP_LOGO, 
+  OFFICIAL_SERTECEP_PORTADA_INNER, 
+  COURSE_FALLBACK_IMAGES,
+  SUPPORT_WHATSAPP_NUMBER 
+} from '../data/mockData';
 import { 
   Play, BookOpen, Clock, Award, CheckCircle2, 
-  ArrowRight, Sparkles, Filter, Search, Layers, Zap
+  ArrowRight, Sparkles, Filter, Search, Layers, Zap, Lock, ShieldCheck
 } from 'lucide-react';
 
 interface DashboardViewProps {
   courses: Course[];
   userProfile: UserProfile;
+  enrolledCourseIds?: string[];
   onSelectCourse: (course: Course, lessonId?: string) => void;
   onNavigateToCatalog: () => void;
   onNavigateToCertificates: () => void;
@@ -17,6 +23,7 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({
   courses,
   userProfile,
+  enrolledCourseIds,
   onSelectCourse,
   onNavigateToCatalog,
   onNavigateToCertificates,
@@ -36,13 +43,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="max-w-[1440px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-6 sm:space-y-8 w-full min-w-0 pb-24 sm:pb-12">
-      {/* Official Portada Banner matching user upload image_1bbd5ab0.png */}
+      {/* Official Inner Portada Banner (PORTADA-2) */}
       <div className="relative rounded-3xl overflow-hidden border border-emerald-500/30 shadow-2xl bg-slate-950 group">
         <img
-          src={OFFICIAL_SERTECEP_PORTADA}
+          src={OFFICIAL_SERTECEP_PORTADA_INNER}
           alt="Portada Oficial Sertecep Amazónico"
           referrerPolicy="no-referrer"
-          className="w-full h-auto object-cover"
+          className="w-full h-auto object-cover max-h-[380px]"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = '/assets/aistudio/PORTADA-2_5250da16.png';
+          }}
         />
 
         {/* Quick action strip overlay at bottom of banner */}
@@ -203,11 +213,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             const completedCount = course.modules.flatMap(m => m.lessons).filter(l => l.completed).length;
             const totalCount = course.modules.flatMap(m => m.lessons).length;
             const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+            const isEnrolled = 
+              userProfile.role === 'admin' || 
+              !enrolledCourseIds || 
+              enrolledCourseIds.includes('ALL') || 
+              enrolledCourseIds.includes(course.id);
 
             return (
               <div
                 key={course.id}
-                className="bg-slate-900/60 border border-slate-800/80 hover:border-emerald-500/40 rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/10 group w-full min-w-0 max-w-full"
+                className={`bg-slate-900/60 border ${
+                  isEnrolled ? 'border-slate-800/80 hover:border-emerald-500/40' : 'border-amber-500/20 hover:border-amber-500/40'
+                } rounded-2xl overflow-hidden flex flex-col justify-between transition-all duration-300 hover:-translate-y-1 hover:shadow-xl group w-full min-w-0 max-w-full`}
               >
                 <div>
                   <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-950">
@@ -219,14 +236,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         e.currentTarget.onerror = null;
                         e.currentTarget.src = COURSE_FALLBACK_IMAGES[course.id] || COURSE_FALLBACK_IMAGES.default;
                       }}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
+                        !isEnrolled ? 'filter grayscale-[30%] opacity-85' : ''
+                      }`}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
 
                     <div className="absolute top-3 left-3 flex items-center gap-2">
-                      <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-500 text-slate-950 shadow-md">
-                        ACTIVO
-                      </span>
+                      {isEnrolled ? (
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-500 text-slate-950 shadow-md flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>ACTIVO</span>
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-amber-500/90 text-slate-950 shadow-md flex items-center gap-1">
+                          <Lock className="w-3 h-3" />
+                          <span>NO MATRICULADO</span>
+                        </span>
+                      )}
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-black/60 backdrop-blur-md text-slate-300 border border-slate-700">
                         {course.category}
                       </span>
@@ -274,13 +301,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </div>
 
                 <div className="p-5 pt-0">
-                  <button
-                    onClick={() => onSelectCourse(course)}
-                    className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                  >
-                    <span>Entrar al aula</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
+                  {isEnrolled ? (
+                    <button
+                      onClick={() => onSelectCourse(course)}
+                      className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                    >
+                      <span>Entrar al aula</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => onSelectCourse(course)}
+                      className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-400/30 font-bold text-xs rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>Solicitar Matrícula</span>
+                    </button>
+                  )}
                 </div>
               </div>
             );

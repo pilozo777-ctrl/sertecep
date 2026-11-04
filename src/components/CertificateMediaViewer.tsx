@@ -43,46 +43,40 @@ export const CertificateMediaViewer: React.FC<CertificateMediaViewerProps> = ({
           onClick={onExpand}
           className={`relative aspect-[16/10] w-full rounded-xl bg-gradient-to-br from-slate-950 via-[#0a121d] to-[#071018] border-2 border-emerald-500/40 shadow-xl overflow-hidden group/thumb cursor-pointer flex flex-col justify-between p-4 sm:p-5 ${className}`}
         >
-          {/* Subtle PDF iframe preview in background with pointer-events-none */}
+          {/* Subtle PDF iframe preview or clean container */}
           {fileUrl && !loadError ? (
-            <div className="absolute inset-0 opacity-40 group-hover/thumb:opacity-25 transition-opacity pointer-events-none overflow-hidden">
+            <div className="absolute inset-0 transition-opacity pointer-events-none overflow-hidden bg-slate-900">
               <iframe
-                src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=0`}
+                src={`${fileUrl}#toolbar=0&navpanes=0&scrollbar=0&view=Fit`}
                 title={`Certificado PDF de ${certificate.studentName}`}
-                className="w-full h-full border-0 pointer-events-none scale-105 origin-top"
+                className="w-full h-full border-0 pointer-events-none"
                 onError={() => setLoadError(true)}
               />
             </div>
-          ) : null}
-
-          {/* Top badges */}
-          <div className="relative z-10 flex items-center justify-between gap-2">
-            <div className="px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-mono text-[9px] font-bold flex items-center gap-1 shadow">
-              <ShieldCheck className="w-3 h-3" />
-              <span>POLYGON BLOCKCHAIN · ZEYO ID</span>
+          ) : (
+            <div className="relative z-10 text-center my-auto py-3">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-400 mb-2 shadow-inner">
+                <FileText className="w-6 h-6" />
+              </div>
+              <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight line-clamp-1">
+                {certificate.studentName}
+              </h4>
+              <p className="text-[11px] text-emerald-400 font-medium line-clamp-1 mt-0.5">
+                {certificate.courseTitle}
+              </p>
             </div>
-            <span className="px-2 py-0.5 rounded-md bg-red-500/90 text-white font-mono font-black text-[9px] tracking-wider flex items-center gap-1 shadow">
+          )}
+
+          {/* Top badges - subtle bar */}
+          <div className="relative z-10 flex items-center justify-between gap-2 pointer-events-none">
+            <div className="px-2.5 py-0.5 rounded-full bg-slate-900/90 border border-emerald-500/40 text-emerald-300 font-mono text-[9px] font-bold flex items-center gap-1 shadow backdrop-blur-sm">
+              <ShieldCheck className="w-3 h-3 text-emerald-400" />
+              <span>BLOCKCHAIN VERIFICADO</span>
+            </div>
+            <span className="px-2 py-0.5 rounded-md bg-red-500 text-white font-mono font-bold text-[9px] tracking-wider flex items-center gap-1 shadow">
               <FileText className="w-2.5 h-2.5" />
-              <span>DOCUMENTO PDF</span>
+              <span>PDF OFICIAL</span>
             </span>
-          </div>
-
-          {/* Middle info card */}
-          <div className="relative z-10 text-center my-auto py-2">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-red-500/15 border border-red-500/30 text-red-400 mb-2 shadow-inner group-hover/thumb:scale-110 transition-transform">
-              <FileText className="w-6 h-6" />
-            </div>
-            <h4 className="text-xs sm:text-sm font-bold text-white tracking-tight line-clamp-1">
-              {certificate.studentName}
-            </h4>
-            <p className="text-[11px] text-emerald-400 font-medium line-clamp-1 mt-0.5">
-              {certificate.courseTitle}
-            </p>
-            <div className="flex items-center justify-center gap-2 mt-1 text-[10px] text-slate-400 font-mono">
-              <span>{certificate.academicHours}h Acreditadas</span>
-              <span>·</span>
-              <span>Cód: {certificate.code.substring(0, 16)}...</span>
-            </div>
           </div>
 
           {/* Bottom helper */}

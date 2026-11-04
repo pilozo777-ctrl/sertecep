@@ -16,12 +16,13 @@ import {
   ShieldCheck, BookOpen, Users, Award, Settings, Plus, 
   Trash2, Edit3, CheckCircle2, Search, ArrowRight, Video, 
   Download, FileText, Phone, Mail, Check, X, Key, Copy, UserPlus, Layers, Eye, Play,
-  Link2, Upload, FileUp, Sparkles, Image as ImageIcon
+  Link2, Upload, FileUp, Sparkles, Image as ImageIcon, FolderPlus
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CertificateDocument } from './CertificateDocument';
-import { parseVideoSource } from './VideoPlayer';
+import { parseVideoSource, extractYouTubeId } from './VideoPlayer';
 import { isPdfDocument } from '../utils/documentUtils';
+import { storage } from '../utils/storage';
 
 interface AdminViewProps {
   courses: Course[];
@@ -72,19 +73,29 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [isAddingCourse, setIsAddingCourse] = useState(false);
   const [newCourseTitle, setNewCourseTitle] = useState('');
   const [newCourseBadge, setNewCourseBadge] = useState('');
-  const [newCourseCategory, setNewCourseCategory] = useState<'Desarrollo Móvil' | 'Sistemas Web' | 'Ofimática & BI' | 'Inteligencia Artificial'>('Inteligencia Artificial');
+  const [newCourseCategory, setNewCourseCategory] = useState<string>('Inteligencia Artificial');
   const [newCourseHours, setNewCourseHours] = useState(120);
   const [newCourseDescription, setNewCourseDescription] = useState('');
+  const [newCourseCoverImage, setNewCourseCoverImage] = useState<string>('/assets/courses/desarrollo_web.jpg');
 
   // States for Editing existing Course
   const [isEditingCourse, setIsEditingCourse] = useState(false);
   const [editCourseTitle, setEditCourseTitle] = useState('');
   const [editCourseBadge, setEditCourseBadge] = useState('');
-  const [editCourseCategory, setEditCourseCategory] = useState<'Desarrollo Móvil' | 'Sistemas Web' | 'Ofimática & BI' | 'Inteligencia Artificial'>('Inteligencia Artificial');
+  const [editCourseCategory, setEditCourseCategory] = useState<string>('Inteligencia Artificial');
   const [editCourseHours, setEditCourseHours] = useState(120);
   const [editCourseDescription, setEditCourseDescription] = useState('');
   const [editCourseTagline, setEditCourseTagline] = useState('');
   const [editCourseInstructorName, setEditCourseInstructorName] = useState('');
+  const [editCourseCoverImage, setEditCourseCoverImage] = useState<string>('');
+
+  // States for Adding and Editing Course Modules (Módulo 1, Módulo 2, etc.)
+  const [isAddingModule, setIsAddingModule] = useState(false);
+  const [newModuleTitle, setNewModuleTitle] = useState('');
+  const [newModuleDescription, setNewModuleDescription] = useState('');
+  const [editingModule, setEditingModule] = useState<CourseModule | null>(null);
+  const [editModuleTitle, setEditModuleTitle] = useState('');
+  const [editModuleDescription, setEditModuleDescription] = useState('');
 
   // Certificate Modals & Management (Linking and Uploading)
   const [previewingCertificate, setPreviewingCertificate] = useState<CertificateRecord | null>(null);
@@ -109,11 +120,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [studentUsername, setStudentUsername] = useState('');
   const [studentPassword, setStudentPassword] = useState('Sertecep2026*');
   const [studentCourseId, setStudentCourseId] = useState(courses[0]?.id || '');
+  const [studentEnrollmentMode, setStudentEnrollmentMode] = useState<'single' | 'all' | 'custom'>('single');
+  const [studentSelectedCourseIds, setStudentSelectedCourseIds] = useState<string[]>([courses[0]?.id || '']);
   const [lastCreatedCredentials, setLastCreatedCredentials] = useState<{
     name: string;
     username: string;
     password: string;
     phone: string;
+    coursesSummary: string;
   } | null>(null);
 
   // Search in students
@@ -133,18 +147,33 @@ export const AdminView: React.FC<AdminViewProps> = ({
     e.preventDefault();
     if (!studentFullName.trim() || !studentUsername.trim()) return;
 
-    const matchedCourse = courses.find(c => c.id === studentCourseId) || courses[0];
+    let finalCourseId = studentCourseId;
+    let finalCourseTitle = courses.find(c => c.id === studentCourseId)?.title || 'Curso Sertecep';
+    let finalEnrolledIds: string[] = [studentCourseId];
+
+    if (studentEnrollmentMode === 'all') {
+      finalEnrolledIds = ['ALL'];
+      finalCourseTitle = `Acceso Total a Todos los Cursos (${courses.length} Cursos)`;
+    } else if (studentEnrollmentMode === 'custom') {
+      finalEnrolledIds = studentSelectedCourseIds.length > 0 ? studentSelectedCourseIds : [studentCourseId];
+      finalCourseId = finalEnrolledIds[0];
+      const selectedNames = courses.filter(c => finalEnrolledIds.includes(c.id)).map(c => c.badgeTitle || c.title);
+      finalCourseTitle = `${selectedNames.length} Cursos (${selectedNames.slice(0, 2).join(', ')}${selectedNames.length > 2 ? '...' : ''})`;
+    }
+
+    const matchedCourse = courses.find(c => c.id === finalCourseId) || courses[0];
 
     const newStudent: StudentEnrollment = {
       id: `st-${Date.now()}`,
       username: studentUsername.trim().toLowerCase(),
       password: studentPassword.trim(),
       studentName: studentFullName.trim().toUpperCase(),
-      email: studentEmail.trim() || `${studentUsername.trim()}@sertecep.edu.ec`,
+      email: studentEmail.trim() || `${studentUsername.trim().toLowerCase()}@sertecep.edu.ec`,
       docNumber: studentDocNumber.trim(),
       phone: studentPhone.trim(),
-      courseId: matchedCourse.id,
-      courseTitle: matchedCourse.title,
+      courseId: finalCourseId,
+      courseTitle: finalCourseTitle,
+      enrolledCourseIds: finalEnrolledIds,
       progressPercent: 0,
       completedLessons: 0,
       totalLessons: matchedCourse.totalLessons,
@@ -153,15 +182,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
     };
 
     onUpdateStudents([newStudent, ...students]);
+    storage.setStudents([newStudent, ...students]);
     setLastCreatedCredentials({
       name: newStudent.studentName,
       username: newStudent.username,
       password: newStudent.password || '123',
       phone: newStudent.phone,
+      coursesSummary: finalCourseTitle,
     });
 
     confetti({ particleCount: 50, spread: 70 });
-    triggerToast(`¡Perfil creado! El estudiante ${newStudent.studentName} ya puede ingresar con su usuario.`);
+    triggerToast(`¡Perfil creado! La estudiante ${newStudent.studentName} ya puede ingresar con su usuario.`);
 
     // Reset inputs
     setStudentFullName('');
@@ -172,7 +203,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   const handleCopyCredentials = () => {
     if (!lastCreatedCredentials) return;
-    const msg = `🎓 *Academia Sertecep Amazónico* (Shushufindi, Ecuador)\n¡Hola ${lastCreatedCredentials.name}! Tu acceso al Aula Virtual ha sido habilitado:\n\n🌐 *Portal:* https://sertecep-amazonico.edu.ec\n👤 *Usuario:* ${lastCreatedCredentials.username}\n🔑 *Contraseña:* ${lastCreatedCredentials.password}\n\n¡Bienvenido y mucho éxito en tus estudios!`;
+    const msg = `🎓 *Academia Sertecep Amazónico* (Shushufindi, Ecuador)\n¡Hola ${lastCreatedCredentials.name}! Tu acceso al Aula Virtual ha sido habilitado:\n\n🌐 *Portal:* https://sertecep-amazonico.edu.ec\n👤 *Usuario:* ${lastCreatedCredentials.username}\n🔑 *Contraseña:* ${lastCreatedCredentials.password}\n📚 *Matrícula:* ${lastCreatedCredentials.coursesSummary}\n\n¡Bienvenido y mucho éxito en tus estudios!`;
     navigator.clipboard.writeText(msg);
     triggerToast('¡Credenciales copiadas al portapapeles para WhatsApp!');
   };
@@ -187,9 +218,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
       badgeTitle: newCourseBadge.trim() || newCourseTitle.trim().toUpperCase(),
       tagline: newCourseDescription.trim().substring(0, 100) || 'Formación técnica especializada con Academia Sertecep.',
       description: newCourseDescription.trim(),
-      category: newCourseCategory,
+      category: newCourseCategory.trim() || 'Inteligencia Artificial',
       level: 'Principiante a Avanzado',
-      coverImage: '/assets/courses/desarrollo_web.jpg',
+      coverImage: newCourseCoverImage.trim() || '/assets/courses/desarrollo_web.jpg',
       instructor: {
         name: 'Ing. Arturo de la Cruz',
         role: 'Director Académico Sertecep Amazónico',
@@ -229,18 +260,115 @@ export const AdminView: React.FC<AdminViewProps> = ({
       ]
     };
 
+    const nextCourses = [newCourseObj, ...courses];
     onAddCourse(newCourseObj);
+    storage.setCourses(nextCourses);
     setIsAddingCourse(false);
     setNewCourseTitle('');
     setNewCourseBadge('');
     setNewCourseDescription('');
+    setNewCourseCoverImage('/assets/courses/desarrollo_web.jpg');
     confetti({ particleCount: 40, spread: 60 });
-    triggerToast('¡Nuevo curso creado y colocado en el aula!');
+    triggerToast('¡Nuevo curso creado y guardado permanentemente!');
+  };
+
+  // Module Management Handlers
+  const handleAddModule = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newModuleTitle.trim()) return;
+
+    const newModuleNumber = selectedCourse.modules.length + 1;
+    const newMod: CourseModule = {
+      id: `mod-${Date.now()}-${newModuleNumber}`,
+      moduleNumber: newModuleNumber,
+      title: newModuleTitle.trim(),
+      description: newModuleDescription.trim() || `Contenido temático del Módulo ${newModuleNumber}`,
+      lessons: []
+    };
+
+    const updatedCourses = courses.map(c => {
+      if (c.id !== selectedCourse.id) return c;
+      const updatedModules = [...c.modules, newMod];
+      return {
+        ...c,
+        totalModules: updatedModules.length,
+        modules: updatedModules
+      };
+    });
+
+    onUpdateCourses(updatedCourses);
+    storage.setCourses(updatedCourses);
+    setIsAddingModule(false);
+    setNewModuleTitle('');
+    setNewModuleDescription('');
+    confetti({ particleCount: 35, spread: 60 });
+    triggerToast(`¡Módulo "${newMod.title}" creado exitosamente!`);
+  };
+
+  const handleStartEditModule = (mod: CourseModule) => {
+    setEditingModule(mod);
+    setEditModuleTitle(mod.title);
+    setEditModuleDescription(mod.description || '');
+  };
+
+  const handleSaveEditModule = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingModule || !editModuleTitle.trim()) return;
+
+    const updatedCourses = courses.map(c => {
+      if (c.id !== selectedCourse.id) return c;
+      return {
+        ...c,
+        modules: c.modules.map(m => m.id === editingModule.id ? {
+          ...m,
+          title: editModuleTitle.trim(),
+          description: editModuleDescription.trim()
+        } : m)
+      };
+    });
+
+    onUpdateCourses(updatedCourses);
+    storage.setCourses(updatedCourses);
+    setEditingModule(null);
+    triggerToast('Módulo actualizado exitosamente.');
+  };
+
+  const handleDeleteModule = (moduleId: string) => {
+    if (!window.confirm('¿Seguro que deseas eliminar este módulo y todas sus lecciones?')) return;
+
+    const updatedCourses = courses.map(c => {
+      if (c.id !== selectedCourse.id) return c;
+      const filtered = c.modules
+        .filter(m => m.id !== moduleId)
+        .map((m, idx) => ({ ...m, moduleNumber: idx + 1 }));
+      const allLessons = filtered.flatMap(m => m.lessons);
+      return {
+        ...c,
+        totalModules: filtered.length,
+        totalLessons: allLessons.length,
+        modules: filtered
+      };
+    });
+
+    onUpdateCourses(updatedCourses);
+    storage.setCourses(updatedCourses);
+    triggerToast('Módulo eliminado del curso.');
   };
 
   const handleAddLessonSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newLessonTitle.trim()) return;
+
+    // Detect YouTube URL in either field
+    const candidateUrl = newLessonVideoUrl.trim() || newLessonYoutubeUrl.trim();
+    const ytId = extractYouTubeId(candidateUrl) || extractYouTubeId(newLessonYoutubeUrl.trim()) || extractYouTubeId(newLessonVideoUrl.trim());
+    let finalVideoUrl = newLessonVideoUrl.trim() || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+    let finalYoutubeUrl = newLessonYoutubeUrl.trim();
+
+    if (ytId) {
+      finalYoutubeUrl = `https://www.youtube.com/watch?v=${ytId}`;
+      finalVideoUrl = `https://www.youtube.com/watch?v=${ytId}`;
+    }
 
     const newLesson: Lesson = {
       id: `les-custom-${Date.now()}`,
@@ -249,8 +377,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
       title: newLessonTitle.trim(),
       duration: newLessonDuration.trim() || '15:00',
       durationSeconds: 900,
-      videoUrl: newLessonVideoUrl.trim() || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-      youtubeUrl: newLessonYoutubeUrl.trim(),
+      videoUrl: finalVideoUrl,
+      youtubeUrl: finalYoutubeUrl,
       summary: newLessonSummary.trim() || 'Contenido técnico administrado por Academia Sertecep Amazónico.',
       keyPoints: ['Configuración y arquitectura inicial', 'Buenas prácticas en desarrollo móvil y web'],
       completed: false,
@@ -261,10 +389,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const updatedCourses = courses.map(course => {
       if (course.id !== selectedCourse.id) return course;
       const updatedModules = [...course.modules];
-      if (updatedModules[lessonModuleIndex]) {
-        updatedModules[lessonModuleIndex] = {
-          ...updatedModules[lessonModuleIndex],
-          lessons: [...updatedModules[lessonModuleIndex].lessons, newLesson]
+      const targetModIdx = lessonModuleIndex < updatedModules.length ? lessonModuleIndex : 0;
+      if (updatedModules[targetModIdx]) {
+        updatedModules[targetModIdx] = {
+          ...updatedModules[targetModIdx],
+          lessons: [...updatedModules[targetModIdx].lessons, newLesson]
         };
       }
       return {
@@ -275,9 +404,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
     });
 
     onUpdateCourses(updatedCourses);
+    storage.setCourses(updatedCourses);
     setIsAddingLesson(false);
     setNewLessonTitle('');
     setNewLessonSummary('');
+    setNewLessonVideoUrl('');
+    setNewLessonYoutubeUrl('');
     confetti({ particleCount: 35, spread: 60 });
     triggerToast('¡Nueva lección agregada exitosamente al curso!');
   };
@@ -302,6 +434,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     });
 
     onUpdateCourses(updatedCourses);
+    storage.setCourses(updatedCourses);
     triggerToast('Lección eliminada del curso.');
   };
 
@@ -322,6 +455,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
     const { moduleId, lesson } = editingLessonInfo;
 
+    // Detect YouTube URL in either field
+    const candidateUrl = editLessonVideoUrl.trim() || editLessonYoutubeUrl.trim();
+    const ytId = extractYouTubeId(candidateUrl) || extractYouTubeId(editLessonYoutubeUrl.trim()) || extractYouTubeId(editLessonVideoUrl.trim());
+
+    let finalVideoUrl = editLessonVideoUrl.trim() || lesson.videoUrl;
+    let finalYoutubeUrl = editLessonYoutubeUrl.trim() || lesson.youtubeUrl;
+
+    if (ytId) {
+      finalYoutubeUrl = `https://www.youtube.com/watch?v=${ytId}`;
+      finalVideoUrl = `https://www.youtube.com/watch?v=${ytId}`;
+    }
+
     const updatedCourses = courses.map(course => {
       if (course.id !== selectedCourse.id) return course;
       const updatedModules = course.modules.map(mod => {
@@ -334,8 +479,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
               ...l,
               title: editLessonTitle.trim(),
               duration: editLessonDuration.trim() || '15:00',
-              videoUrl: editLessonVideoUrl.trim() || l.videoUrl,
-              youtubeUrl: editLessonYoutubeUrl.trim(),
+              videoUrl: finalVideoUrl,
+              youtubeUrl: finalYoutubeUrl,
               summary: editLessonSummary.trim(),
             };
           })
@@ -348,20 +493,22 @@ export const AdminView: React.FC<AdminViewProps> = ({
     });
 
     onUpdateCourses(updatedCourses);
+    storage.setCourses(updatedCourses);
     setEditingLessonInfo(null);
     confetti({ particleCount: 40, spread: 60 });
-    triggerToast('¡Video y contenido de la clase guardados con éxito!');
+    triggerToast('¡Video y contenido de la clase guardados permanentemente!');
   };
 
   // Handler for editing course details
   const handleStartEditCourse = () => {
     setEditCourseTitle(selectedCourse.title);
     setEditCourseBadge(selectedCourse.badgeTitle);
-    setEditCourseCategory(selectedCourse.category as any);
+    setEditCourseCategory(selectedCourse.category);
     setEditCourseHours(selectedCourse.totalHours);
     setEditCourseDescription(selectedCourse.description);
     setEditCourseTagline(selectedCourse.tagline);
     setEditCourseInstructorName(selectedCourse.instructor.name);
+    setEditCourseCoverImage(selectedCourse.coverImage || '/assets/courses/desarrollo_web.jpg');
     setIsEditingCourse(true);
   };
 
@@ -375,10 +522,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
         ...course,
         title: editCourseTitle.trim(),
         badgeTitle: editCourseBadge.trim() || editCourseTitle.trim().toUpperCase(),
-        category: editCourseCategory,
+        category: editCourseCategory.trim() || course.category,
         totalHours: Number(editCourseHours) || course.totalHours,
         description: editCourseDescription.trim(),
         tagline: editCourseTagline.trim() || editCourseDescription.trim().substring(0, 90),
+        coverImage: editCourseCoverImage.trim() || course.coverImage,
         instructor: {
           ...course.instructor,
           name: editCourseInstructorName.trim() || course.instructor.name
@@ -387,9 +535,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
     });
 
     onUpdateCourses(updatedCourses);
+    storage.setCourses(updatedCourses);
     setIsEditingCourse(false);
     confetti({ particleCount: 45, spread: 65 });
-    triggerToast('¡Información del curso actualizada exitosamente!');
+    triggerToast('¡Información y portada del curso guardadas permanentemente!');
+  };
+
+  const handleCourseImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        if (isEdit) {
+          setEditCourseCoverImage(reader.result);
+        } else {
+          setNewCourseCoverImage(reader.result);
+        }
+        triggerToast('¡Foto del curso cargada con éxito!');
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -513,6 +679,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
     });
 
     onUpdateStudents(updated);
+    storage.setStudents(updated);
+  };
+
+  const handleDeleteStudent = (studentId: string) => {
+    if (!window.confirm('¿Seguro que deseas eliminar a este estudiante del aula virtual?')) return;
+    const updated = students.filter(s => s.id !== studentId);
+    onUpdateStudents(updated);
+    storage.setStudents(updated);
+    triggerToast('Estudiante eliminado.');
   };
 
   const filteredStudents = students.filter(s =>
@@ -684,21 +859,116 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
-                  Curso en el que se Matricula
-                </label>
-                <select
-                  value={studentCourseId}
-                  onChange={(e) => setStudentCourseId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500"
-                >
-                  {courses.map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.title} ({c.totalHours} horas)
-                    </option>
-                  ))}
-                </select>
+              {/* Asignación y Matrícula de Cursos */}
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-slate-300 uppercase font-mono">
+                    Plan de Matrícula y Acceso a Cursos:
+                  </label>
+                  <span className="text-[10px] text-emerald-400 font-mono">Control de permisos</span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setStudentEnrollmentMode('single')}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${
+                      studentEnrollmentMode === 'single'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/60 font-bold'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                    }`}
+                  >
+                    1 Curso Específico
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStudentEnrollmentMode('all')}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${
+                      studentEnrollmentMode === 'all'
+                        ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold shadow'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                    }`}
+                  >
+                    ⭐ Todos los Cursos
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStudentEnrollmentMode('custom')}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${
+                      studentEnrollmentMode === 'custom'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/60 font-bold'
+                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                    }`}
+                  >
+                    Varios Cursos
+                  </button>
+                </div>
+
+                {studentEnrollmentMode === 'single' && (
+                  <div>
+                    <label className="block text-[10px] text-slate-400 uppercase font-mono mb-1">
+                      Seleccionar curso asignado:
+                    </label>
+                    <select
+                      value={studentCourseId}
+                      onChange={(e) => setStudentCourseId(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-emerald-500 text-xs"
+                    >
+                      {courses.map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.title} ({c.totalHours} horas)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {studentEnrollmentMode === 'all' && (
+                  <div className="p-3 rounded-lg bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>
+                      <strong>Acceso Total Habilitado:</strong> El alumno tendrá acceso a los {courses.length} cursos activos de la Academia.
+                    </span>
+                  </div>
+                )}
+
+                {studentEnrollmentMode === 'custom' && (
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    <label className="block text-[10px] text-slate-400 uppercase font-mono mb-1">
+                      Marca los cursos permitidos para este alumno:
+                    </label>
+                    {courses.map(c => {
+                      const isChecked = studentSelectedCourseIds.includes(c.id);
+                      return (
+                        <label
+                          key={c.id}
+                          className={`flex items-center gap-2.5 p-2 rounded-lg border cursor-pointer transition text-xs ${
+                            isChecked
+                              ? 'bg-emerald-500/15 border-emerald-500/50 text-white font-medium'
+                              : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setStudentSelectedCourseIds([...studentSelectedCourseIds, c.id]);
+                              } else {
+                                setStudentSelectedCourseIds(studentSelectedCourseIds.filter(id => id !== c.id));
+                              }
+                            }}
+                            className="rounded border-slate-700 text-emerald-500 focus:ring-emerald-500"
+                          />
+                          <span className="truncate">{c.title}</span>
+                          <span className="text-[10px] text-slate-500 font-mono ml-auto">{c.totalHours}h</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Login Credentials Box */}
@@ -872,14 +1142,22 @@ export const AdminView: React.FC<AdminViewProps> = ({
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={handleStartEditCourse}
                 className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5 border border-slate-700"
-                title="Editar título, descripción, horas o instructor de este curso"
+                title="Editar título, descripción, horas, categoría o instructor de este curso"
               >
                 <Edit3 className="w-4 h-4 text-amber-400" />
                 <span>Editar Curso</span>
+              </button>
+              <button
+                onClick={() => setIsAddingModule(true)}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5"
+                title="Crear un nuevo módulo (Módulo 1, Módulo 2, etc.)"
+              >
+                <FolderPlus className="w-4 h-4" />
+                <span>+ Añadir Módulo</span>
               </button>
               <button
                 onClick={() => setIsAddingCourse(true)}
@@ -889,7 +1167,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 <span>Colocar Nuevo Curso</span>
               </button>
               <button
-                onClick={() => setIsAddingLesson(true)}
+                onClick={() => {
+                  setLessonModuleIndex(0);
+                  setIsAddingLesson(true);
+                }}
                 className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow transition flex items-center gap-1.5"
               >
                 <Plus className="w-4 h-4" />
@@ -912,76 +1193,134 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 <p className="text-[11px] text-slate-500 mt-0.5">Docente: {selectedCourse.instructor.name}</p>
               </div>
 
-              <div className="text-right text-xs font-mono">
-                <span className="text-slate-400 block">TOTAL LECCIONES ACTIVAS</span>
-                <span className="text-xl font-black text-white">
-                  {selectedCourse.modules.flatMap(m => m.lessons).length}
-                </span>
+              <div className="flex items-center gap-4 text-xs font-mono">
+                <div className="text-right">
+                  <span className="text-slate-400 block text-[10px]">MÓDULOS ACTIVOS</span>
+                  <span className="text-xl font-black text-indigo-400">
+                    {selectedCourse.modules.length}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-slate-400 block text-[10px]">TOTAL LECCIONES</span>
+                  <span className="text-xl font-black text-white">
+                    {selectedCourse.modules.flatMap(m => m.lessons).length}
+                  </span>
+                </div>
               </div>
             </div>
 
             {/* Modules and Lessons List */}
             <div className="space-y-6">
-              {selectedCourse.modules.map((mod) => (
+              {selectedCourse.modules.map((mod, modIdx) => (
                 <div key={mod.id} className="p-4 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-800/60">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">
+                      <span className="text-xs font-bold font-mono text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20">
                         MÓDULO {mod.moduleNumber}
                       </span>
-                      <h3 className="text-sm font-bold text-white">{mod.title}</h3>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">{mod.title}</h3>
+                        {mod.description && (
+                          <p className="text-[11px] text-slate-400">{mod.description}</p>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-xs text-slate-500 font-mono">
-                      {mod.lessons.length} lecciones
-                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setLessonModuleIndex(modIdx);
+                          setIsAddingLesson(true);
+                        }}
+                        className="px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-semibold flex items-center gap-1 transition"
+                        title="Añadir lección directamente a este módulo"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Añadir Lección a este Módulo</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleStartEditModule(mod)}
+                        className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-slate-800 rounded-lg transition"
+                        title="Editar nombre y descripción de este módulo"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+
+                      {selectedCourse.modules.length > 1 && (
+                        <button
+                          onClick={() => handleDeleteModule(mod.id)}
+                          className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition"
+                          title="Eliminar este módulo"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    {mod.lessons.map((les) => (
-                      <div
-                        key={les.id}
-                        className="flex items-center justify-between p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition"
+                  {mod.lessons.length === 0 ? (
+                    <div className="p-6 rounded-xl bg-slate-900/30 border border-dashed border-slate-800 text-center text-xs text-slate-400">
+                      <p>Este módulo aún no tiene lecciones asignadas.</p>
+                      <button
+                        onClick={() => {
+                          setLessonModuleIndex(modIdx);
+                          setIsAddingLesson(true);
+                        }}
+                        className="mt-2 text-emerald-400 font-bold hover:underline inline-flex items-center gap-1"
                       >
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-mono text-xs font-bold flex items-center justify-center shrink-0">
-                            {les.lessonNumber}
-                          </div>
-                          <div className="truncate">
-                            <p className="text-xs font-semibold text-white truncate">{les.title}</p>
-                            <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
-                              <span>Duración: {les.duration}</span>
-                              <span>·</span>
-                              <span className="text-emerald-400">Video Activo</span>
-                              {les.youtubeUrl && (
-                                <>
-                                  <span>·</span>
-                                  <span className="text-red-400">YouTube</span>
-                                </>
-                              )}
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Añadir la primera clase a {mod.title}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {mod.lessons.map((les) => (
+                        <div
+                          key={les.id}
+                          className="flex items-center justify-between p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 transition"
+                        >
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-mono text-xs font-bold flex items-center justify-center shrink-0">
+                              {les.lessonNumber}
+                            </div>
+                            <div className="truncate">
+                              <p className="text-xs font-semibold text-white truncate">{les.title}</p>
+                              <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
+                                <span>Duración: {les.duration}</span>
+                                <span>·</span>
+                                <span className="text-emerald-400">Video Activo</span>
+                                {les.youtubeUrl && (
+                                  <>
+                                    <span>·</span>
+                                    <span className="text-red-400">YouTube</span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <button
-                            onClick={() => handleStartEditLesson(mod.id, les)}
-                            className="px-2.5 py-1.5 text-xs text-amber-300 hover:text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 rounded-lg transition flex items-center gap-1 font-semibold"
-                            title="Editar lección y colocar/cambiar el video"
-                          >
-                            <Edit3 className="w-3.5 h-3.5 text-amber-400" />
-                            <span className="hidden sm:inline">Editar Video</span>
-                          </button>
-                          <button
-                            onClick={() => handleDeleteLesson(mod.id, les.id)}
-                            className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition"
-                            title="Eliminar lección"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={() => handleStartEditLesson(mod.id, les)}
+                              className="px-2.5 py-1.5 text-xs text-amber-300 hover:text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 rounded-lg transition flex items-center gap-1 font-semibold"
+                              title="Editar lección y colocar/cambiar el video"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                              <span className="hidden sm:inline">Editar Video</span>
+                            </button>
+                            <button
+                              onClick={() => handleDeleteLesson(mod.id, les.id)}
+                              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition"
+                              title="Eliminar lección"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -1074,16 +1413,25 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       )}
                     </td>
                     <td className="p-3.5 text-right">
-                      <button
-                        onClick={() => handleToggleCertificateApproval(st.id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shadow ${
-                          st.certificateApproved
-                            ? 'bg-slate-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-slate-700'
-                            : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
-                        }`}
-                      >
-                        {st.certificateApproved ? 'Revocar Diploma' : 'Aprobar Diploma'}
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleToggleCertificateApproval(st.id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition shadow ${
+                            st.certificateApproved
+                              ? 'bg-slate-800 hover:bg-red-500/20 text-slate-300 hover:text-red-400 border border-slate-700'
+                              : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
+                          }`}
+                        >
+                          {st.certificateApproved ? 'Revocar Diploma' : 'Aprobar Diploma'}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteStudent(st.id)}
+                          className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition"
+                          title="Eliminar este estudiante"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1216,7 +1564,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <form
             onSubmit={handleAddCourseSubmit}
-            className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl relative space-y-4"
+            className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-2xl relative space-y-4 max-h-[90vh] overflow-y-auto"
           >
             <button
               type="button"
@@ -1233,12 +1581,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <h3 className="text-lg font-bold text-white tracking-tight mt-0.5">
                 Colocar Nuevo Curso en el Aula Virtual
               </h3>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Configura el nombre, categoría libre, horas y sube la foto de portada real.
+              </p>
             </div>
 
-            <div className="space-y-3 text-xs">
+            <div className="space-y-3.5 text-xs">
               <div>
                 <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
-                  Nombre del Curso
+                  Nombre Oficial del Curso *
                 </label>
                 <input
                   type="text"
@@ -1246,36 +1597,123 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   onChange={(e) => setNewCourseTitle(e.target.value)}
                   placeholder="Ej: Automatización con Python & Agentes de IA"
                   required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              {/* Categoría libremente editable con chips de sugerencia */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase">
+                    Categoría del Curso (Editable)
+                  </label>
+                  <span className="text-[10px] text-amber-400">Puedes escribir la tuya o elegir</span>
+                </div>
+                <input
+                  type="text"
+                  value={newCourseCategory}
+                  onChange={(e) => setNewCourseCategory(e.target.value)}
+                  placeholder="Ej: Inteligencia Artificial, Robótica, Marketing Digital..."
+                  required
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400"
                 />
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {['Inteligencia Artificial', 'Desarrollo Móvil', 'Sistemas Web', 'Ofimática & BI', 'Marketing Digital', 'Robótica & IoT', 'Diseño Gráfico'].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setNewCourseCategory(cat)}
+                      className={`text-[10px] px-2 py-0.5 rounded-md border transition ${
+                        newCourseCategory === cat
+                          ? 'bg-amber-400/20 text-amber-300 border-amber-400/50 font-bold'
+                          : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
-                    Categoría
-                  </label>
-                  <select
-                    value={newCourseCategory}
-                    onChange={(e) => setNewCourseCategory(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400"
-                  >
-                    <option value="Inteligencia Artificial">Inteligencia Artificial</option>
-                    <option value="Desarrollo Móvil">Desarrollo Móvil</option>
-                    <option value="Sistemas Web">Sistemas Web</option>
-                    <option value="Ofimática & BI">Ofimática & BI</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
-                    Horas Académicas
+                    Horas Acreditadas
                   </label>
                   <input
                     type="number"
                     value={newCourseHours}
                     onChange={(e) => setNewCourseHours(Number(e.target.value))}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
+                    Insignia Corta (Badge)
+                  </label>
+                  <input
+                    type="text"
+                    value={newCourseBadge}
+                    onChange={(e) => setNewCourseBadge(e.target.value)}
+                    placeholder="Ej: PYTHON IA"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-amber-400 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Foto de Portada del Curso: Subida desde el dispositivo o URL */}
+              <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-emerald-400 uppercase flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Foto de Portada del Curso (Personalizable)</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400">Subir foto o link</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-14 rounded-lg overflow-hidden border border-slate-700 bg-slate-900 shrink-0 flex items-center justify-center">
+                    {newCourseCoverImage ? (
+                      <img
+                        src={newCourseCoverImage}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = '/assets/courses/desarrollo_web.jpg';
+                        }}
+                      />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-slate-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold cursor-pointer transition">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Subir foto desde este dispositivo / celular</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleCourseImageUpload(e, false)}
+                      />
+                    </label>
+                    <p className="text-[10px] text-slate-400">
+                      Sube cualquier archivo JPG o PNG de tus cursos.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                    O escribe la URL / enlace directo de la imagen:
+                  </label>
+                  <input
+                    type="text"
+                    value={newCourseCoverImage}
+                    onChange={(e) => setNewCourseCoverImage(e.target.value)}
+                    placeholder="https://... o /assets/courses/..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
                   />
                 </div>
               </div>
@@ -1288,7 +1726,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   value={newCourseDescription}
                   onChange={(e) => setNewCourseDescription(e.target.value)}
                   rows={3}
-                  placeholder="Detalla las competencias que adquirirá el estudiante..."
+                  placeholder="Detalla las competencias prácticas que adquirirá el estudiante..."
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-amber-400 leading-relaxed resize-none"
                 />
               </div>
@@ -1304,9 +1742,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition"
+                className="px-5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-1.5"
               >
-                Publicar Curso
+                <Plus className="w-4 h-4" />
+                <span>Publicar Curso</span>
               </button>
             </div>
           </form>
@@ -1612,12 +2051,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <h3 className="text-lg font-bold text-white tracking-tight mt-0.5">
                 Editar Información del Curso
               </h3>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Modifica el nombre, categoría, horas y sube la foto real del curso sin perder datos.
+              </p>
             </div>
 
             <div className="space-y-3.5 text-xs">
               <div>
                 <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
-                  Nombre Oficial del Curso
+                  Nombre Oficial del Curso *
                 </label>
                 <input
                   type="text"
@@ -1628,23 +2070,41 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
-                    Categoría
+              {/* Categoría editable con chips de sugerencia */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-slate-300 uppercase">
+                    Categoría (Completamente Editable)
                   </label>
-                  <select
-                    value={editCourseCategory}
-                    onChange={(e) => setEditCourseCategory(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
-                  >
-                    <option value="Ofimática & BI">Ofimática & BI</option>
-                    <option value="Sistemas Web">Sistemas Web</option>
-                    <option value="Desarrollo Móvil">Desarrollo Móvil</option>
-                    <option value="Inteligencia Artificial">Inteligencia Artificial</option>
-                  </select>
+                  <span className="text-[10px] text-amber-400">Escribe libremente o selecciona</span>
                 </div>
+                <input
+                  type="text"
+                  value={editCourseCategory}
+                  onChange={(e) => setEditCourseCategory(e.target.value)}
+                  placeholder="Ej: Inteligencia Artificial, Robótica, Marketing Digital..."
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-white focus:outline-none focus:border-amber-400"
+                />
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {['Inteligencia Artificial', 'Desarrollo Móvil', 'Sistemas Web', 'Ofimática & BI', 'Marketing Digital', 'Robótica & IoT', 'Diseño Gráfico'].map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setEditCourseCategory(cat)}
+                      className={`text-[10px] px-2 py-0.5 rounded-md border transition ${
+                        editCourseCategory === cat
+                          ? 'bg-amber-400/20 text-amber-300 border-amber-400/50 font-bold'
+                          : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-white'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
                     Horas Acreditadas
@@ -1654,6 +2114,75 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     value={editCourseHours}
                     onChange={(e) => setEditCourseHours(Number(e.target.value))}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
+                    Insignia Corta (Badge)
+                  </label>
+                  <input
+                    type="text"
+                    value={editCourseBadge}
+                    onChange={(e) => setEditCourseBadge(e.target.value)}
+                    placeholder="Ej: OFIMÁTICA"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400 font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Foto de Portada del Curso: Subir foto propia del celular/PC */}
+              <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-emerald-400 uppercase flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5" />
+                    <span>Foto de Portada del Curso (Editable)</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400">Sube tu propia foto</span>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-14 rounded-lg overflow-hidden border border-slate-700 bg-slate-900 shrink-0 flex items-center justify-center">
+                    {editCourseCoverImage ? (
+                      <img
+                        src={editCourseCoverImage}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = '/assets/courses/desarrollo_web.jpg';
+                        }}
+                      />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-slate-600" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold cursor-pointer transition">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Subir foto desde este dispositivo / celular</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleCourseImageUpload(e, true)}
+                      />
+                    </label>
+                    <p className="text-[10px] text-slate-400">
+                      Sube una foto real sin depender de imágenes de IA.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 mb-1">
+                    O escribe la URL / enlace directo de la imagen:
+                  </label>
+                  <input
+                    type="text"
+                    value={editCourseCoverImage}
+                    onChange={(e) => setEditCourseCoverImage(e.target.value)}
+                    placeholder="https://... o /assets/courses/..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-amber-400 font-mono"
                   />
                 </div>
               </div>
@@ -1697,6 +2226,153 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 className="px-5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition"
               >
                 Actualizar Curso
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Modal: Crear Nuevo Módulo Temático (Módulo 1, Módulo 2, etc.) */}
+      {isAddingModule && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={handleAddModule}
+            className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl relative space-y-4"
+          >
+            <button
+              type="button"
+              onClick={() => setIsAddingModule(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest font-mono">
+                ESTRUCTURA DE MÓDULOS
+              </span>
+              <h3 className="text-lg font-bold text-white tracking-tight mt-0.5">
+                Crear Nuevo Módulo en el Curso
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Curso: <span className="text-amber-300 font-semibold">{selectedCourse.title}</span>
+              </p>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
+                  Título del Módulo *
+                </label>
+                <input
+                  type="text"
+                  value={newModuleTitle}
+                  onChange={(e) => setNewModuleTitle(e.target.value)}
+                  placeholder={`Ej: Módulo ${selectedCourse.modules.length + 1}: Automatización de Procesos`}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-emerald-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
+                  Descripción o Temas Clave del Módulo
+                </label>
+                <textarea
+                  value={newModuleDescription}
+                  onChange={(e) => setNewModuleDescription(e.target.value)}
+                  rows={3}
+                  placeholder="Explica qué aprenderán en este módulo temático..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-emerald-400 leading-relaxed resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setIsAddingModule(false)}
+                className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-700 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-1.5"
+              >
+                <FolderPlus className="w-4 h-4" />
+                <span>Crear Módulo</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Modal: Editar Módulo Temático */}
+      {editingModule && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={handleSaveEditModule}
+            className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl relative space-y-4"
+          >
+            <button
+              type="button"
+              onClick={() => setEditingModule(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div>
+              <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest font-mono">
+                EDITAR ESTRUCTURA
+              </span>
+              <h3 className="text-lg font-bold text-white tracking-tight mt-0.5">
+                Modificar Nombre del Módulo
+              </h3>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
+                  Título del Módulo *
+                </label>
+                <input
+                  type="text"
+                  value={editModuleTitle}
+                  onChange={(e) => setEditModuleTitle(e.target.value)}
+                  required
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">
+                  Descripción del Módulo
+                </label>
+                <textarea
+                  value={editModuleDescription}
+                  onChange={(e) => setEditModuleDescription(e.target.value)}
+                  rows={3}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-amber-400 leading-relaxed resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setEditingModule(null)}
+                className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-700 transition"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs rounded-xl shadow-lg transition flex items-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Guardar Cambios</span>
               </button>
             </div>
           </form>

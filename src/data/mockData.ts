@@ -5,6 +5,7 @@ export const SUPPORT_WHATSAPP_CLEAN = '593989012515';
 
 export const OFFICIAL_SERTECEP_LOGO = '/assets/aistudio/image_4414231c.png';
 export const OFFICIAL_SERTECEP_PORTADA = '/assets/aistudio/image_1bbd5ab0.png';
+export const OFFICIAL_SERTECEP_PORTADA_INNER = '/assets/aistudio/PORTADA-2_5250da16.png';
 
 // Exact Admin Credentials:
 // Usuario: admin
